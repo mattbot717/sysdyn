@@ -1,0 +1,74 @@
+# Farm Water System
+# A simple model of soil moisture dynamics
+#
+# This demonstrates:
+# - Multiple stocks interacting
+# - External inputs (rain)
+# - Balancing feedback (evaporation increases with moisture)
+# - Threshold effects (runoff only when saturated)
+
+name: farm-water
+description: Soil moisture dynamics on a farm field
+
+# Time unit: days
+# Stock unit: mm of water equivalent
+
+params:
+  # Climate
+  daily_rain: 3
+  daily_evap_rate: 0.05
+
+  # Soil properties
+  field_capacity: 100
+  saturation_point: 150
+  infiltration_rate: 0.8
+
+  # Vegetation
+  plant_uptake_rate: 0.03
+
+stocks:
+  soil_moisture:
+    initial: 60
+    min: 0
+    description: Water stored in soil (mm)
+
+  deep_water:
+    initial: 200
+    min: 0
+    description: Water percolated below root zone (mm)
+
+flows:
+  # Rain enters the soil
+  rain:
+    from: external
+    to: soil_moisture
+    rate: daily_rain * infiltration_rate
+    description: Precipitation entering soil
+
+  # Runoff when saturated
+  runoff:
+    from: external
+    to: external
+    rate: "max(0, soil_moisture - saturation_point) * 0.5"
+    description: Surface runoff when soil saturated
+
+  # Evaporation (proportional to moisture)
+  evaporation:
+    from: soil_moisture
+    to: external
+    rate: soil_moisture * daily_evap_rate
+    description: Direct evaporation from soil
+
+  # Plant uptake
+  plant_uptake:
+    from: soil_moisture
+    to: external
+    rate: soil_moisture * plant_uptake_rate
+    description: Water consumed by plants
+
+  # Deep percolation (when above field capacity)
+  percolation:
+    from: soil_moisture
+    to: deep_water
+    rate: "max(0, soil_moisture - field_capacity) * 0.1"
+    description: Water draining to deep storage
