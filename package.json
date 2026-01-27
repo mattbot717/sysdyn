@@ -1,0 +1,15 @@
+{
+  "name": "sysdyn",
+  "version": "0.1.0",
+  "description": "System dynamics playground. Model feedback loops, simulate behavior, understand complex systems.",
+  "type": "module",
+  "bin": {
+    "sys": "./bin/sys.js"
+  },
+  "scripts": {
+    "test": "node bin/sys.js help"
+  },
+  "keywords": ["cli", "simulation", "systems", "modeling", "feedback"],
+  "author": "mattbot717 & battle buddy",
+  "license": "MIT"
+}
