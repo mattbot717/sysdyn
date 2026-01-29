@@ -1,0 +1,126 @@
+name: grazing-single
+description: Single paddock grazing dynamics - validate biological model
+
+# This models ONE paddock with continuous grazing pressure
+# Goal: Validate forage growth, consumption, soil health dynamics
+# Once this works, we'll scale to 5-paddock rotation system
+#
+# VALIDATED: Run with dt=0.5 for stability (Euler method needs small steps)
+#   sys run grazing-single 1095 0.5   # 3 years, half-day steps
+#
+# KEY FINDINGS:
+# - 8 head on 8 acres (1 AU/acre) is sustainable with 5mm/day rain
+# - System exhibits ~270-day oscillation cycle (forage/moisture feedback)
+# - 14 head causes pasture crash within 1 year (unsustainable)
+# - Soil organic matter accumulates slowly but steadily under grazing
+
+params:
+  # Paddock characteristics
+  paddock_acres: 8
+
+  # Herd characteristics
+  herd_count: 8  # Reduced from 14 to test sustainable stocking
+  avg_animal_weight: 557  # kg (mix of 3 yearlings at 400kg, 11 mature at 600kg = 7800/14)
+  daily_intake_rate: 0.025  # 2.5% of body weight per day (standard for cattle)
+
+  # Forage growth parameters
+  max_growth_rate: 80  # kg/acre/day at optimal conditions
+  optimal_forage: 2500  # kg/acre carrying capacity (lush pasture)
+  min_forage_threshold: 300  # kg/acre - below this, severe overgrazing damage
+
+  # Soil parameters
+  base_evaporation: 4  # mm/day baseline
+  rain_input: 5  # mm/day average (good growing season)
+  field_capacity: 100  # mm maximum soil moisture
+
+  # Soil organic matter dynamics
+  som_mineralization_rate: 0.0001  # SOM slowly mineralizes
+  manure_addition_rate: 0.00005  # Grazing adds SOM via manure/urine
+
+  # Growth modifiers
+  moisture_optimal: 60  # mm soil moisture for best growth
+  som_growth_multiplier: 20  # SOM boost to growth rate
+
+stocks:
+  # Forage biomass (kg dry matter per acre)
+  forage_biomass:
+    initial: 2000  # Starting at decent pasture condition
+
+  # Soil moisture (mm available water)
+  soil_moisture:
+    initial: 70  # Starting at good moisture
+
+  # Soil organic matter (% SOM - but modeled as 0-100 for easier math, will display as %)
+  soil_organic_matter:
+    initial: 3.5  # 3.5% SOM is decent soil health
+
+  # Recovery tracking (days since last major grazing pressure - for future use)
+  recovery_days:
+    initial: 0
+
+flows:
+  # FORAGE DYNAMICS
+
+  grass_growth:
+    from: external
+    to: forage_biomass
+    rate: "max_growth_rate * (forage_biomass / optimal_forage) * (1 - forage_biomass / optimal_forage) * (soil_moisture / moisture_optimal) * (1 + soil_organic_matter * som_growth_multiplier / 100)"
+    # Logistic growth modified by:
+    # - Current forage (S-curve, grows fastest at 50% of carrying capacity)
+    # - Soil moisture (linear response - more moisture = more growth)
+    # - Soil organic matter (healthier soil = better growth)
+
+  grazing_consumption:
+    from: forage_biomass
+    to: external
+    rate: "min((herd_count * avg_animal_weight * daily_intake_rate) / paddock_acres, forage_biomass * 0.1)"
+    # Total herd intake distributed per acre, BUT limited by available forage
+    # Can't graze more than 10% of standing biomass per day (physical constraint)
+    # 14 head * 557 kg * 0.025 = 195 kg/day total = 24 kg/acre/day on 8 acres (max)
+
+  trampling_loss:
+    from: forage_biomass
+    to: external
+    rate: "grazing_consumption * 0.3"
+    # Roughly 30% of consumed forage is also trampled/wasted
+
+  # SOIL MOISTURE DYNAMICS
+
+  rainfall:
+    from: external
+    to: soil_moisture
+    rate: rain_input
+
+  evapotranspiration:
+    from: soil_moisture
+    to: external
+    rate: "base_evaporation * (1 + forage_biomass / optimal_forage * 0.5)"
+    # More forage = more transpiration (plants using water)
+
+  deep_percolation:
+    from: soil_moisture
+    to: external
+    rate: "max(0, soil_moisture - field_capacity) * 0.5"
+    # Excess water drains away when above field capacity
+
+  # SOIL ORGANIC MATTER DYNAMICS
+
+  som_mineralization:
+    from: soil_organic_matter
+    to: external
+    rate: "soil_organic_matter * som_mineralization_rate"
+    # SOM slowly degrades
+
+  manure_deposition:
+    from: external
+    to: soil_organic_matter
+    rate: "grazing_consumption * manure_addition_rate"
+    # Grazing animals deposit manure, building SOM over time
+
+  # RECOVERY TRACKING
+
+  recovery_accumulation:
+    from: external
+    to: recovery_days
+    rate: 1
+    # Just increments daily - will reset when we add rotation logic
