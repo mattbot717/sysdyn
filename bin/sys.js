@@ -15,6 +15,7 @@
 
 import { simulate, validateModel, summarize, sparkline } from '../lib/engine.js';
 import { loadModel, listModels, saveModel, createModelScaffold } from '../lib/loader.js';
+import { startServer } from '../lib/web/server.js';
 
 // ============================================================
 // CLI Entry Point
@@ -36,6 +37,9 @@ try {
       break;
     case 'validate':
       await validateCommand(args.slice(1));
+      break;
+    case 'serve':
+      await serveCommand(args.slice(1));
       break;
     case 'help':
     case '--help':
@@ -124,6 +128,22 @@ async function newCommand(args) {
 }
 
 /**
+ * Start web dashboard server
+ */
+async function serveCommand(args) {
+  const modelName = args[0];
+  const port = parseInt(args[1]) || 3000;
+
+  if (!modelName) {
+    console.error('Usage: sys serve <model> [port]');
+    console.error('Example: sys serve farm-water 3000');
+    process.exit(1);
+  }
+
+  await startServer(modelName, { port });
+}
+
+/**
  * Validate a model
  */
 async function validateCommand(args) {
@@ -170,15 +190,18 @@ function showHelp() {
 ╰──────────────────────────────────────────────────────────────╯
 
 USAGE:
-  sys run <model> [steps] [dt]    Run a simulation
-  sys list                         List available models
-  sys new <name> [template]        Create a new model
-  sys validate <model>             Validate a model
-  sys help                         Show this help
+  sys run <model> [steps] [dt]    Run a simulation (CLI output)
+  sys serve <model> [port]        Launch web dashboard
+  sys list                        List available models
+  sys new <name> [template]       Create a new model
+  sys validate <model>            Validate a model
+  sys help                        Show this help
 
 EXAMPLES:
   sys run farm-water              Run the farm-water model
   sys run farm-water 200 0.5      Run 200 steps with dt=0.5
+  sys serve farm-water            Open interactive dashboard
+  sys serve farm-water 8080       Use custom port
   sys list                        Show all models
   sys new irrigation basic        Create a new basic model
   sys validate farm-water         Check model for errors
