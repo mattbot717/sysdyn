@@ -16,9 +16,10 @@ params:
   total_herd_weight: 7800  # kg (3*400 + 11*600)
   daily_intake_rate: 0.025  # 2.5% of body weight per day
 
-  # Herd location (which paddock: 1=CCE, 2=CCW, 3=Big, 4=Hog, 5=South)
-  current_paddock: 3  # Currently in Big Pasture
-  rotation_days: 14  # Days to graze each paddock before moving
+  # Rotation schedule will be managed by simulation code
+  # Paddock IDs: 1=CCE, 2=CCW, 3=Big, 4=Hog, 5=South
+  current_paddock: 5  # Starting paddock (will be overridden by schedule)
+  rotation_days: 14  # Default days per paddock (if using simple rotation)
 
   # ============================================================
   # PADDOCK ACREAGE
