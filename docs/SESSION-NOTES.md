@@ -347,6 +347,10 @@ sys serve grazing-rotation-real
 
 ## 💡 Philosophy Check
 
+> **"The goal here in the lab, and in life, is to learn and grow and gain a closer sense of truth of everything."**
+
+This is the foundation. Everything we build serves this purpose.
+
 > "All models are wrong, but some are useful." — George Box
 
 **This model is USEFUL:**
