@@ -4,7 +4,8 @@
   "description": "System dynamics playground. Model feedback loops, simulate behavior, understand complex systems.",
   "type": "module",
   "bin": {
-    "sys": "./bin/sys.js"
+    "sys": "./bin/sys.js",
+    "rotation": "./bin/rotation.js"
   },
   "scripts": {
     "test": "node bin/sys.js help"

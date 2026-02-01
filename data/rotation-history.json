@@ -1,0 +1,90 @@
+{
+  "metadata": {
+    "farm": "Collinsville, TX",
+    "created": "2026-01-31",
+    "lastUpdated": "2026-01-31",
+    "paddocks": {
+      "cce": "Cedar Crest East",
+      "ccw": "Cedar Crest West",
+      "big": "Big Pasture",
+      "hog": "Hog Pasture",
+      "south": "Frankie's Pasture"
+    }
+  },
+  "currentPaddock": {
+    "id": "big",
+    "name": "Big Pasture",
+    "since": "2026-01-22"
+  },
+  "rotations": [
+    {
+      "paddock": "south",
+      "name": "Frankie's Pasture",
+      "start": "2025-12-10",
+      "end": "2025-12-24",
+      "days": 14,
+      "hayFed": false,
+      "notes": "Good condition entering. Seeded after herd moved out."
+    },
+    {
+      "paddock": "ccw",
+      "name": "Cedar Crest West",
+      "start": "2025-12-24",
+      "end": "2026-01-03",
+      "days": 10,
+      "hayFed": false,
+      "notes": "No hay needed - tree cover (silvopasture) retained moisture during drought"
+    },
+    {
+      "paddock": "cce",
+      "name": "Cedar Crest East",
+      "start": "2026-01-03",
+      "end": "2026-01-17",
+      "days": 14,
+      "hayFed": true,
+      "notes": "HAY REQUIRED - hilltop exposed, drought stress, brown/dormant"
+    },
+    {
+      "paddock": "hog",
+      "name": "Hog Pasture",
+      "start": "2026-01-17",
+      "end": "2026-01-22",
+      "days": 5,
+      "hayFed": false,
+      "notes": "Short rotation, creek moisture helped"
+    },
+    {
+      "paddock": "big",
+      "name": "Big Pasture",
+      "start": "2026-01-22",
+      "end": null,
+      "days": null,
+      "hayFed": true,
+      "notes": "Current paddock. Ice storm ~Jan 24. Hay supplementation ongoing."
+    }
+  ],
+  "events": [
+    {
+      "date": "2025-12-01",
+      "type": "drought_start",
+      "notes": "54-day drought begins (Dec 1 - Jan 23)"
+    },
+    {
+      "date": "2025-12-25",
+      "type": "seeding",
+      "paddock": "south",
+      "notes": "Seeded Frankie's Pasture after grazing. ~10-15% near creek showing green shoots by late Jan."
+    },
+    {
+      "date": "2026-01-23",
+      "type": "rain",
+      "amount_mm": 12.7,
+      "notes": "First significant rain breaking 54-day drought"
+    },
+    {
+      "date": "2026-01-24",
+      "type": "ice_storm",
+      "notes": "Ice storm hit. Damaged above-ground forage but roots intact."
+    }
+  ]
+}

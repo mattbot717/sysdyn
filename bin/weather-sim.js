@@ -9,6 +9,7 @@
 import { loadModel } from '../lib/loader.js';
 import { validateModel, sparkline } from '../lib/engine.js';
 import { getCollinsvilleWeather, summarizeWeather, displayWeatherSummary } from '../lib/weather.js';
+import { getRotationSchedule as loadRotationSchedule, displayRotationHistory } from '../lib/rotation.js';
 
 /**
  * Run simulation with real weather data
@@ -17,7 +18,7 @@ import { getCollinsvilleWeather, summarizeWeather, displayWeatherSummary } from 
  * @param {number} dt - Time step (default 1 day)
  * @returns {Object} Simulation results
  */
-function simulateWithWeather(model, weatherDays, dt = 1) {
+async function simulateWithWeather(model, weatherDays, dt = 1) {
   // Validate model
   const errors = validateModel(model);
   if (errors.length > 0) {
@@ -48,11 +49,14 @@ function simulateWithWeather(model, weatherDays, dt = 1) {
   // Simulation loop - one step per weather day
   let time = 0;
 
+  // Load rotation schedule
+  const schedule = await getRotationSchedule();
+
   for (let dayIdx = 0; dayIdx < weatherDays.length; dayIdx++) {
     const weather = weatherDays[dayIdx];
 
     // Determine which paddock the herd is in today
-    const rotation = getPaddockForDay(dayIdx);
+    const rotation = getPaddockForDay(dayIdx, schedule);
     model.params.current_paddock = rotation.paddock;
 
     // Override rain and ET parameters with actual weather
@@ -108,7 +112,7 @@ function simulateWithWeather(model, weatherDays, dt = 1) {
 /**
  * Display simulation results
  */
-function displayResults(results, model, weatherDays) {
+async function displayResults(results, model, weatherDays) {
   console.log('\n════════════════════════════════════════════════════════════');
   console.log(`  ${model.name.toUpperCase()}`);
   console.log(`  ${model.description}`);
@@ -129,7 +133,7 @@ function displayResults(results, model, weatherDays) {
   };
 
   // Calculate total grazing days per paddock
-  const schedule = getRotationSchedule();
+  const schedule = await getRotationSchedule();
   const grazingDays = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
   for (const period of schedule) {
     if (period.startDay + period.duration <= weatherDays.length) {
@@ -182,25 +186,17 @@ function displayResults(results, model, weatherDays) {
   console.log('\n════════════════════════════════════════════════════════════\n');
 }
 
-/**
- * Define rotation schedule based on actual farm history
- * Returns paddock number (1-5) for a given day
- */
-function getRotationSchedule() {
-  // Real rotation history (Dec 10, 2025 - Jan 31, 2026)
-  // Day 0 = Dec 10, 2025 (roughly when weather data starts getting good)
-  return [
-    { paddock: 5, name: "Frankie's Pasture", startDay: 0, duration: 14 },   // Dec 10-24
-    { paddock: 2, name: 'Cedar Crest West', startDay: 14, duration: 10 }, // Dec 24-Jan 3
-    { paddock: 1, name: 'Cedar Crest East', startDay: 24, duration: 14 }, // Jan 3-17 (DROUGHT!)
-    { paddock: 4, name: 'Hog Pasture', startDay: 38, duration: 5 },      // Jan 17-22
-    { paddock: 3, name: 'Big Pasture', startDay: 43, duration: 38 },     // Jan 22-now (ice storm!)
-  ];
+// Schedule is now loaded from data/rotation-history.json via lib/rotation.js
+let _schedule = null;
+
+async function getRotationSchedule(startDate = '2025-12-10') {
+  if (!_schedule) {
+    _schedule = await loadRotationSchedule(startDate);
+  }
+  return _schedule;
 }
 
-function getPaddockForDay(day) {
-  const schedule = getRotationSchedule();
-
+function getPaddockForDay(day, schedule) {
   for (const period of schedule) {
     if (day >= period.startDay && day < period.startDay + period.duration) {
       return { paddock: period.paddock, name: period.name };
@@ -222,13 +218,8 @@ async function main() {
     console.log(`\n📊 Loading model: ${modelName}...\n`);
     const model = await loadModel(modelName);
 
-    // Display rotation schedule
-    console.log('🔄 ROTATION SCHEDULE:\n');
-    const schedule = getRotationSchedule();
-    for (const period of schedule) {
-      console.log(`   Day ${period.startDay}-${period.startDay + period.duration - 1}: ${period.name} (${period.duration} days)`);
-    }
-    console.log('');
+    // Display rotation history from JSON
+    await displayRotationHistory();
 
     // Fetch weather
     const weatherDays = await getCollinsvilleWeather(days, 0);
@@ -239,10 +230,10 @@ async function main() {
 
     // Run simulation
     console.log('⚙️  Running weather-driven simulation...\n');
-    const results = simulateWithWeather(model, weatherDays, 1);
+    const results = await simulateWithWeather(model, weatherDays, 1);
 
     // Display results
-    displayResults(results, model, weatherDays);
+    await displayResults(results, model, weatherDays);
 
     // Critical warnings
     console.log('\n⚠️  WARNINGS:\n');
