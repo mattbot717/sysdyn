@@ -28,7 +28,7 @@ params:
   ccw_acres: 8   # Cedar Crest West
   big_acres: 9   # Big Pasture
   hog_acres: 5   # Hog Pasture
-  south_acres: 8  # South Pasture (Frankie's)
+  south_acres: 8  # Frankie's Pasture
 
   # ============================================================
   # FORAGE GROWTH PARAMETERS (BASE)
@@ -58,12 +58,12 @@ params:
   ccw_evap_mult: 0.9   # Silvopasture - tree shade reduces evap
   big_evap_mult: 0.8   # Wooded flood plain - low evaporation
   hog_evap_mult: 0.7   # Creek + trees - lowest evaporation
-  south_evap_mult: 1.1  # Open flood plain - moderate evaporation
+  south_evap_mult: 0.85  # Creek runoff area - good moisture retention
 
   # Flood plain bonus (extra water during rain events)
   big_flood_bonus: 0.5   # Big gets runoff from Cedar Crests
   hog_flood_bonus: 0.3   # Hog gets some runoff + creek seepage
-  south_flood_bonus: 0.2  # South gets moderate flood benefit
+  south_flood_bonus: 0.4  # Frankie's gets good runoff from creek between Big Pasture
 
   field_capacity: 100  # mm maximum soil moisture
   moisture_optimal: 60  # mm soil moisture for best growth
@@ -131,13 +131,14 @@ stocks:
     initial: 4.0  # Best soil (riparian zone)
 
   # ============================================================
-  # STOCKS - SOUTH PASTURE (Open Flood Plain)
+  # STOCKS - FRANKIE'S PASTURE (Flood Plain + Creek Runoff)
+  # Recently seeded after grazing. Green shoots near creek/runoff area.
   # ============================================================
   south_forage:
-    initial: 2000  # Moderate condition
+    initial: 1200  # Recently grazed, seeded, recovering
 
   south_moisture:
-    initial: 65  # Moderate flood benefit
+    initial: 75  # Good moisture from creek runoff
 
   south_som:
     initial: 3.3  # Decent soil
@@ -330,7 +331,7 @@ flows:
     rate: "hog_grazing * manure_addition_rate"
 
   # ============================================================
-  # FLOWS - SOUTH PASTURE
+  # FLOWS - FRANKIE'S PASTURE
   # ============================================================
   south_growth:
     from: external

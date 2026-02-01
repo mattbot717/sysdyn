@@ -125,7 +125,7 @@ function displayResults(results, model, weatherDays) {
     ccw: 'Cedar Crest West',
     big: 'Big Pasture',
     hog: 'Hog Pasture',
-    south: 'South Pasture',
+    south: "Frankie's Pasture",
   };
 
   // Calculate total grazing days per paddock
@@ -190,7 +190,7 @@ function getRotationSchedule() {
   // Real rotation history (Dec 10, 2025 - Jan 31, 2026)
   // Day 0 = Dec 10, 2025 (roughly when weather data starts getting good)
   return [
-    { paddock: 5, name: 'South Pasture', startDay: 0, duration: 14 },   // Dec 10-24
+    { paddock: 5, name: "Frankie's Pasture", startDay: 0, duration: 14 },   // Dec 10-24
     { paddock: 2, name: 'Cedar Crest West', startDay: 14, duration: 10 }, // Dec 24-Jan 3
     { paddock: 1, name: 'Cedar Crest East', startDay: 24, duration: 14 }, // Jan 3-17 (DROUGHT!)
     { paddock: 4, name: 'Hog Pasture', startDay: 38, duration: 5 },      // Jan 17-22
@@ -253,7 +253,7 @@ async function main() {
       ccw: 'Cedar Crest West',
       big: 'Big Pasture',
       hog: 'Hog Pasture',
-      south: 'South Pasture',
+      south: "Frankie's Pasture",
     };
 
     for (const paddock of paddocks) {

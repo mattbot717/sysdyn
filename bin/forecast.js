@@ -17,7 +17,7 @@ const CURRENT_STATUS = {
   ccw: { forage: 1844, moisture: 41.4 },
   big: { forage: 331, moisture: 53.2 },   // Currently grazing
   hog: { forage: 2200, moisture: 45.9 },
-  south: { forage: 1635, moisture: 40.9 },
+  south: { forage: 1200, moisture: 75 },  // Recently seeded, recovering with good creek moisture
 };
 
 const PADDOCK_NAMES = {
@@ -25,7 +25,7 @@ const PADDOCK_NAMES = {
   ccw: 'Cedar Crest West',
   big: 'Big Pasture',
   hog: 'Hog Pasture',
-  south: 'South Pasture',
+  south: "Frankie's Pasture",
 };
 
 async function main() {
