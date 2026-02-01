@@ -1,179 +1,241 @@
 name: grazing-rotation-real
-description: Your actual 5-paddock rotation system near Collinsville, TX
+description: Pyrennial Farms - 5-paddock adaptive grazing system, Collinsville TX
 
-# REAL FARM MODEL - Collinsville, TX
+# =============================================================================
+# PYRENNIAL FARMS MODEL - Collinsville, TX
+# =============================================================================
 # 5 paddocks, 14 head (3 yearlings @ 400kg, 11 mature @ 600kg)
 # Adaptive rotational grazing with electric wire subdivisions
-# Goal: Find optimal rotation timing, plan for drought, minimize hay feeding
+#
+# KEY IMPROVEMENT: Separate tracking of dormant vs active forage
+# - Dormant = standing dead/brown grass (has mass, low nutrition, doesn't grow)
+# - Active = green growing material (high nutrition, responds to conditions)
+# - Cattle graze both, preferring active
+# - Dormant has minimum floor (root mass never goes to zero)
+# - In spring, dormant converts to active (greenup)
+#
+# Last updated: 2026-01-31
+# Current paddock: Big Pasture (since Jan 22)
+# =============================================================================
 
 params:
   # ============================================================
   # HERD CHARACTERISTICS
   # ============================================================
   herd_count: 14
-  yearlings: 3  # 400kg each
-  mature_cattle: 11  # 600kg each
+  yearlings: 3           # 400kg each
+  mature_cattle: 11      # 600kg each
   total_herd_weight: 7800  # kg (3*400 + 11*600)
   daily_intake_rate: 0.025  # 2.5% of body weight per day
 
-  # Rotation schedule will be managed by simulation code
-  # Paddock IDs: 1=CCE, 2=CCW, 3=Big, 4=Hog, 5=South
-  current_paddock: 5  # Starting paddock (will be overridden by schedule)
-  rotation_days: 14  # Default days per paddock (if using simple rotation)
+  # Paddock IDs: 1=CCE, 2=CCW, 3=Big, 4=Hog, 5=South (Frankie's)
+  current_paddock: 3     # Big Pasture (since Jan 22, 2026)
+  rotation_days: 14      # Default days per paddock
 
   # ============================================================
   # PADDOCK ACREAGE
   # ============================================================
-  cce_acres: 8   # Cedar Crest East
-  ccw_acres: 8   # Cedar Crest West
-  big_acres: 9   # Big Pasture
-  hog_acres: 5   # Hog Pasture
-  south_acres: 8  # Frankie's Pasture
+  cce_acres: 8           # Cedar Crest East - hilltop, open
+  ccw_acres: 8           # Cedar Crest West - silvopasture, trees
+  big_acres: 9           # Big Pasture - flood plain, wooded
+  hog_acres: 5           # Hog Pasture - creek access
+  south_acres: 8         # Frankie's Pasture - creek runoff
 
   # ============================================================
-  # FORAGE GROWTH PARAMETERS (BASE)
+  # FORAGE GROWTH PARAMETERS
   # ============================================================
-  max_growth_rate: 80  # kg/acre/day at optimal conditions (summer)
-  optimal_forage: 2500  # kg/acre carrying capacity (lush pasture)
-  min_forage_threshold: 300  # kg/acre - severe overgrazing damage below this
+  max_growth_rate: 80    # kg/acre/day at optimal conditions (summer peak)
+  optimal_forage: 2500   # kg/acre total carrying capacity
+
+  # Dormant forage parameters
+  dormant_min: 300       # kg/acre - root mass floor, never goes below this
+  dormant_decay_rate: 0.002  # Slow decay of standing dead material
+  dormant_palatability: 0.4  # Cattle eat dormant at 40% the rate of active
 
   # ============================================================
   # SEASONAL ADJUSTMENTS
   # ============================================================
-  winter_dormancy_factor: 0.1  # Growth drops to 10% in winter (Nov-Mar)
-  summer_growth_boost: 1.0  # Full growth in summer (Apr-Oct)
+  # Current: Late January = deep winter dormancy
+  season_multiplier: 0.1   # Growth at 10% of max
 
-  # Current season (0=winter, 1=growing season)
-  # January = winter dormancy active
-  season_multiplier: 0.1
+  # Greenup parameters (dormant -> active conversion)
+  greenup_threshold: 0.3   # season_multiplier must exceed this for greenup
+  greenup_rate: 0.02       # % of dormant converting to active per day when warm
 
   # ============================================================
-  # WEATHER / MOISTURE PARAMETERS (COLLINSVILLE, TX)
+  # WEATHER / MOISTURE (Collinsville, TX)
   # ============================================================
-  base_rain_input: 3  # mm/day average (will replace with real data later)
-  base_evaporation: 4  # mm/day baseline
+  base_rain_input: 3       # mm/day average
+  base_evaporation: 4      # mm/day baseline
 
   # Paddock-specific evaporation multipliers
-  cce_evap_mult: 1.3   # Open hilltop - high evaporation
-  ccw_evap_mult: 0.9   # Silvopasture - tree shade reduces evap
-  big_evap_mult: 0.8   # Wooded flood plain - low evaporation
-  hog_evap_mult: 0.7   # Creek + trees - lowest evaporation
-  south_evap_mult: 0.85  # Creek runoff area - good moisture retention
+  cce_evap_mult: 1.3       # Open hilltop - high evaporation
+  ccw_evap_mult: 0.9       # Silvopasture - tree shade
+  big_evap_mult: 0.8       # Wooded flood plain
+  hog_evap_mult: 0.7       # Creek + trees - lowest
+  south_evap_mult: 0.85    # Creek runoff area
 
-  # Flood plain bonus (extra water during rain events)
-  big_flood_bonus: 0.5   # Big gets runoff from Cedar Crests
-  hog_flood_bonus: 0.3   # Hog gets some runoff + creek seepage
-  south_flood_bonus: 0.4  # Frankie's gets good runoff from creek between Big Pasture
+  # Flood plain water bonus
+  big_flood_bonus: 0.5
+  hog_flood_bonus: 0.3
+  south_flood_bonus: 0.4
 
-  field_capacity: 100  # mm maximum soil moisture
-  moisture_optimal: 60  # mm soil moisture for best growth
-
-  # ============================================================
-  # SOIL ORGANIC MATTER DYNAMICS
-  # ============================================================
-  som_mineralization_rate: 0.0001  # SOM slowly mineralizes
-  manure_addition_rate: 0.00005  # Grazing adds SOM via manure/urine
-  som_growth_multiplier: 20  # SOM boost to growth rate
+  field_capacity: 100      # mm maximum soil moisture
+  moisture_optimal: 60     # mm for best growth
 
   # ============================================================
-  # GRAZING INTENSITY
+  # SOIL ORGANIC MATTER
   # ============================================================
-  trampling_loss_rate: 0.3  # 30% of consumed forage also trampled/wasted
+  som_mineralization_rate: 0.0001
+  manure_addition_rate: 0.00005
+  som_growth_multiplier: 20
 
-# ============================================================
-# STOCKS - CEDAR CREST EAST (Hilltop, Open)
-# ============================================================
+  # ============================================================
+  # GRAZING DYNAMICS
+  # ============================================================
+  trampling_loss_rate: 0.3   # 30% trampled/wasted
+  max_daily_consumption: 0.15  # Can't eat more than 15% of standing forage/day
+
+# =============================================================================
+# STOCKS - Current state as of Jan 31, 2026
+# =============================================================================
+# Based on rotation history:
+# - CCE: Grazed Jan 3-17, HAY REQUIRED, stressed
+# - CCW: Grazed Dec 24 - Jan 3, no hay, tree cover helped
+# - Big: Currently grazed since Jan 22, hay supplementation
+# - Hog: Short rotation Jan 17-22, creek moisture
+# - Frankie's: Resting since Dec 24, seeded Dec 25, ~10-15% green near creek
+# =============================================================================
+
 stocks:
-  cce_forage:
-    initial: 2200  # Well-rested, good condition
-
+  # ============================================================
+  # CEDAR CREST EAST (Hilltop, Open) - Stressed from drought
+  # Grazed Jan 3-17, needed hay, brown/dormant
+  # ============================================================
+  cce_dormant:
+    initial: 450
+    min: 300           # Root mass floor
+  cce_active:
+    initial: 50        # Very little green
+    min: 0
   cce_moisture:
-    initial: 50  # Drier (hilltop, open, good drainage)
-
+    initial: 40        # Dry - hilltop, drought stress
   cce_som:
-    initial: 3.2  # Decent soil health
+    initial: 3.2
 
   # ============================================================
-  # STOCKS - CEDAR CREST WEST (Slope, Silvopasture)
+  # CEDAR CREST WEST (Silvopasture) - Tree cover helped
+  # Grazed Dec 24 - Jan 3, no hay needed
   # ============================================================
-  ccw_forage:
-    initial: 2100  # Well-rested
-
+  ccw_dormant:
+    initial: 900
+    min: 300
+  ccw_active:
+    initial: 200       # Some green from tree protection
+    min: 0
   ccw_moisture:
-    initial: 60  # Better moisture (tree shade)
-
+    initial: 55        # Better moisture from tree shade
   ccw_som:
-    initial: 3.5  # Good soil (trees contribute OM)
+    initial: 3.5
 
   # ============================================================
-  # STOCKS - BIG PASTURE (Flood Plain, Wooded)
-  # Currently being grazed - forage is lower
+  # BIG PASTURE (Flood Plain) - Currently being grazed
+  # Since Jan 22, hay supplementation ongoing
   # ============================================================
-  big_forage:
-    initial: 1200  # Currently grazed down
-
+  big_dormant:
+    initial: 600
+    min: 300
+  big_active:
+    initial: 150
+    min: 0
   big_moisture:
-    initial: 75  # Flood plain - wet
-
+    initial: 70        # Flood plain holds water
   big_som:
-    initial: 3.8  # Good soil (flood plain fertility)
+    initial: 3.8
 
   # ============================================================
-  # STOCKS - HOG PASTURE (Flood Plain + Creek)
+  # HOG PASTURE (Creek Access) - Short rotation, healthy
+  # Grazed Jan 17-22 (5 days only), creek moisture
   # ============================================================
-  hog_forage:
-    initial: 2400  # Lush (creek access, rested)
-
+  hog_dormant:
+    initial: 1100
+    min: 300
+  hog_active:
+    initial: 500       # Creek keeps some green
+    min: 0
   hog_moisture:
-    initial: 85  # Wettest paddock (creek + flood)
-
+    initial: 80        # Wettest - creek seepage
   hog_som:
-    initial: 4.0  # Best soil (riparian zone)
+    initial: 4.0
 
   # ============================================================
-  # STOCKS - FRANKIE'S PASTURE (Flood Plain + Creek Runoff)
-  # Recently seeded after grazing. Green shoots near creek/runoff area.
+  # FRANKIE'S PASTURE (Creek Runoff) - Resting, seeded
+  # Resting since Dec 24 (38 days), seeded Dec 25
+  # 10-15% showing green shoots near creek
   # ============================================================
-  south_forage:
-    initial: 1200  # Recently grazed, seeded, recovering
-
+  south_dormant:
+    initial: 500
+    min: 300
+  south_active:
+    initial: 100       # Seedlings emerging near creek
+    min: 0
   south_moisture:
-    initial: 75  # Good moisture from creek runoff
-
+    initial: 65        # Good from creek runoff
   south_som:
-    initial: 3.3  # Decent soil
+    initial: 3.3
 
   # ============================================================
   # ROTATION TRACKING
   # ============================================================
   rotation_timer:
-    initial: 0  # Days in current paddock (resets at rotation_days)
+    initial: 9         # Days on Big Pasture (since Jan 22)
 
-# ============================================================
-# FLOWS - CEDAR CREST EAST
-# ============================================================
+# =============================================================================
+# FLOWS
+# =============================================================================
+# For each paddock:
+# - Active growth: logistic growth based on moisture, SOM, season
+# - Dormant decay: slow loss of standing dead material
+# - Greenup: dormant -> active when season_multiplier > threshold
+# - Grazing: consumes active first (preferred), then dormant
+# - Trampling: fraction of grazing lost to waste
+# =============================================================================
+
 flows:
-  # --- FORAGE DYNAMICS ---
-  cce_growth:
+  # ============================================================
+  # CEDAR CREST EAST
+  # ============================================================
+  cce_active_growth:
     from: external
-    to: cce_forage
-    rate: "current_paddock == 1 ? 0 : (max_growth_rate * season_multiplier * (cce_forage / optimal_forage) * (1 - cce_forage / optimal_forage) * (cce_moisture / moisture_optimal) * (1 + cce_som * som_growth_multiplier / 100))"
-    # No growth while being grazed (current_paddock == 1)
-    # Otherwise: logistic growth modified by moisture and SOM
+    to: cce_active
+    rate: "current_paddock == 1 ? 0 : max_growth_rate * season_multiplier * (cce_active / optimal_forage) * (1 - (cce_dormant + cce_active) / optimal_forage) * (cce_moisture / moisture_optimal) * (1 + cce_som * som_growth_multiplier / 100)"
 
-  cce_grazing:
-    from: cce_forage
+  cce_greenup:
+    from: cce_dormant
+    to: cce_active
+    rate: "season_multiplier > greenup_threshold ? cce_dormant * greenup_rate : 0"
+
+  cce_dormant_decay:
+    from: cce_dormant
     to: external
-    rate: "current_paddock == 1 ? min((total_herd_weight * daily_intake_rate) / cce_acres, cce_forage * 0.15) : 0"
-    # Only graze if herd is in this paddock (current_paddock == 1)
-    # Can't graze more than 15% of standing biomass per day
+    rate: "max(0, (cce_dormant - dormant_min) * dormant_decay_rate)"
+
+  cce_grazing_active:
+    from: cce_active
+    to: external
+    rate: "current_paddock == 1 ? min((total_herd_weight * daily_intake_rate) / cce_acres, cce_active * max_daily_consumption) : 0"
+
+  cce_grazing_dormant:
+    from: cce_dormant
+    to: external
+    rate: "current_paddock == 1 ? min(max(0, (total_herd_weight * daily_intake_rate) / cce_acres - cce_grazing_active) * dormant_palatability, (cce_dormant - dormant_min) * max_daily_consumption) : 0"
 
   cce_trampling:
-    from: cce_forage
-    to: external
-    rate: "cce_grazing * trampling_loss_rate"
+    from: cce_active
+    to: cce_dormant
+    rate: "(cce_grazing_active + cce_grazing_dormant) * trampling_loss_rate * 0.5"
+    # Trampled material becomes dormant/dead
 
-  # --- SOIL MOISTURE ---
   cce_rain:
     from: external
     to: cce_moisture
@@ -182,14 +244,13 @@ flows:
   cce_evapotranspiration:
     from: cce_moisture
     to: external
-    rate: "base_evaporation * cce_evap_mult * (1 + cce_forage / optimal_forage * 0.5)"
+    rate: "base_evaporation * cce_evap_mult * (1 + (cce_dormant + cce_active) / optimal_forage * 0.3)"
 
   cce_deep_percolation:
     from: cce_moisture
     to: external
     rate: "max(0, cce_moisture - field_capacity) * 0.5"
 
-  # --- SOIL ORGANIC MATTER ---
   cce_som_loss:
     from: cce_som
     to: external
@@ -198,25 +259,40 @@ flows:
   cce_manure:
     from: external
     to: cce_som
-    rate: "cce_grazing * manure_addition_rate"
+    rate: "(cce_grazing_active + cce_grazing_dormant) * manure_addition_rate"
 
   # ============================================================
-  # FLOWS - CEDAR CREST WEST
+  # CEDAR CREST WEST
   # ============================================================
-  ccw_growth:
+  ccw_active_growth:
     from: external
-    to: ccw_forage
-    rate: "current_paddock == 2 ? 0 : (max_growth_rate * season_multiplier * (ccw_forage / optimal_forage) * (1 - ccw_forage / optimal_forage) * (ccw_moisture / moisture_optimal) * (1 + ccw_som * som_growth_multiplier / 100))"
+    to: ccw_active
+    rate: "current_paddock == 2 ? 0 : max_growth_rate * season_multiplier * (ccw_active / optimal_forage) * (1 - (ccw_dormant + ccw_active) / optimal_forage) * (ccw_moisture / moisture_optimal) * (1 + ccw_som * som_growth_multiplier / 100)"
 
-  ccw_grazing:
-    from: ccw_forage
+  ccw_greenup:
+    from: ccw_dormant
+    to: ccw_active
+    rate: "season_multiplier > greenup_threshold ? ccw_dormant * greenup_rate : 0"
+
+  ccw_dormant_decay:
+    from: ccw_dormant
     to: external
-    rate: "current_paddock == 2 ? min((total_herd_weight * daily_intake_rate) / ccw_acres, ccw_forage * 0.15) : 0"
+    rate: "max(0, (ccw_dormant - dormant_min) * dormant_decay_rate)"
+
+  ccw_grazing_active:
+    from: ccw_active
+    to: external
+    rate: "current_paddock == 2 ? min((total_herd_weight * daily_intake_rate) / ccw_acres, ccw_active * max_daily_consumption) : 0"
+
+  ccw_grazing_dormant:
+    from: ccw_dormant
+    to: external
+    rate: "current_paddock == 2 ? min(max(0, (total_herd_weight * daily_intake_rate) / ccw_acres - ccw_grazing_active) * dormant_palatability, (ccw_dormant - dormant_min) * max_daily_consumption) : 0"
 
   ccw_trampling:
-    from: ccw_forage
-    to: external
-    rate: "ccw_grazing * trampling_loss_rate"
+    from: ccw_active
+    to: ccw_dormant
+    rate: "(ccw_grazing_active + ccw_grazing_dormant) * trampling_loss_rate * 0.5"
 
   ccw_rain:
     from: external
@@ -226,7 +302,7 @@ flows:
   ccw_evapotranspiration:
     from: ccw_moisture
     to: external
-    rate: "base_evaporation * ccw_evap_mult * (1 + ccw_forage / optimal_forage * 0.5)"
+    rate: "base_evaporation * ccw_evap_mult * (1 + (ccw_dormant + ccw_active) / optimal_forage * 0.3)"
 
   ccw_deep_percolation:
     from: ccw_moisture
@@ -241,36 +317,50 @@ flows:
   ccw_manure:
     from: external
     to: ccw_som
-    rate: "ccw_grazing * manure_addition_rate"
+    rate: "(ccw_grazing_active + ccw_grazing_dormant) * manure_addition_rate"
 
   # ============================================================
-  # FLOWS - BIG PASTURE (Currently being grazed!)
+  # BIG PASTURE (Currently being grazed)
   # ============================================================
-  big_growth:
+  big_active_growth:
     from: external
-    to: big_forage
-    rate: "current_paddock == 3 ? 0 : (max_growth_rate * season_multiplier * (big_forage / optimal_forage) * (1 - big_forage / optimal_forage) * (big_moisture / moisture_optimal) * (1 + big_som * som_growth_multiplier / 100))"
+    to: big_active
+    rate: "current_paddock == 3 ? 0 : max_growth_rate * season_multiplier * (big_active / optimal_forage) * (1 - (big_dormant + big_active) / optimal_forage) * (big_moisture / moisture_optimal) * (1 + big_som * som_growth_multiplier / 100)"
 
-  big_grazing:
-    from: big_forage
+  big_greenup:
+    from: big_dormant
+    to: big_active
+    rate: "season_multiplier > greenup_threshold ? big_dormant * greenup_rate : 0"
+
+  big_dormant_decay:
+    from: big_dormant
     to: external
-    rate: "current_paddock == 3 ? min((total_herd_weight * daily_intake_rate) / big_acres, big_forage * 0.15) : 0"
+    rate: "max(0, (big_dormant - dormant_min) * dormant_decay_rate)"
+
+  big_grazing_active:
+    from: big_active
+    to: external
+    rate: "current_paddock == 3 ? min((total_herd_weight * daily_intake_rate) / big_acres, big_active * max_daily_consumption) : 0"
+
+  big_grazing_dormant:
+    from: big_dormant
+    to: external
+    rate: "current_paddock == 3 ? min(max(0, (total_herd_weight * daily_intake_rate) / big_acres - big_grazing_active) * dormant_palatability, (big_dormant - dormant_min) * max_daily_consumption) : 0"
 
   big_trampling:
-    from: big_forage
-    to: external
-    rate: "big_grazing * trampling_loss_rate"
+    from: big_active
+    to: big_dormant
+    rate: "(big_grazing_active + big_grazing_dormant) * trampling_loss_rate * 0.5"
 
   big_rain:
     from: external
     to: big_moisture
     rate: "base_rain_input + big_flood_bonus"
-    # Gets bonus water from runoff
 
   big_evapotranspiration:
     from: big_moisture
     to: external
-    rate: "base_evaporation * big_evap_mult * (1 + big_forage / optimal_forage * 0.5)"
+    rate: "base_evaporation * big_evap_mult * (1 + (big_dormant + big_active) / optimal_forage * 0.3)"
 
   big_deep_percolation:
     from: big_moisture
@@ -285,25 +375,40 @@ flows:
   big_manure:
     from: external
     to: big_som
-    rate: "big_grazing * manure_addition_rate"
+    rate: "(big_grazing_active + big_grazing_dormant) * manure_addition_rate"
 
   # ============================================================
-  # FLOWS - HOG PASTURE
+  # HOG PASTURE
   # ============================================================
-  hog_growth:
+  hog_active_growth:
     from: external
-    to: hog_forage
-    rate: "current_paddock == 4 ? 0 : (max_growth_rate * season_multiplier * (hog_forage / optimal_forage) * (1 - hog_forage / optimal_forage) * (hog_moisture / moisture_optimal) * (1 + hog_som * som_growth_multiplier / 100))"
+    to: hog_active
+    rate: "current_paddock == 4 ? 0 : max_growth_rate * season_multiplier * (hog_active / optimal_forage) * (1 - (hog_dormant + hog_active) / optimal_forage) * (hog_moisture / moisture_optimal) * (1 + hog_som * som_growth_multiplier / 100)"
 
-  hog_grazing:
-    from: hog_forage
+  hog_greenup:
+    from: hog_dormant
+    to: hog_active
+    rate: "season_multiplier > greenup_threshold ? hog_dormant * greenup_rate : 0"
+
+  hog_dormant_decay:
+    from: hog_dormant
     to: external
-    rate: "current_paddock == 4 ? min((total_herd_weight * daily_intake_rate) / hog_acres, hog_forage * 0.15) : 0"
+    rate: "max(0, (hog_dormant - dormant_min) * dormant_decay_rate)"
+
+  hog_grazing_active:
+    from: hog_active
+    to: external
+    rate: "current_paddock == 4 ? min((total_herd_weight * daily_intake_rate) / hog_acres, hog_active * max_daily_consumption) : 0"
+
+  hog_grazing_dormant:
+    from: hog_dormant
+    to: external
+    rate: "current_paddock == 4 ? min(max(0, (total_herd_weight * daily_intake_rate) / hog_acres - hog_grazing_active) * dormant_palatability, (hog_dormant - dormant_min) * max_daily_consumption) : 0"
 
   hog_trampling:
-    from: hog_forage
-    to: external
-    rate: "hog_grazing * trampling_loss_rate"
+    from: hog_active
+    to: hog_dormant
+    rate: "(hog_grazing_active + hog_grazing_dormant) * trampling_loss_rate * 0.5"
 
   hog_rain:
     from: external
@@ -313,7 +418,7 @@ flows:
   hog_evapotranspiration:
     from: hog_moisture
     to: external
-    rate: "base_evaporation * hog_evap_mult * (1 + hog_forage / optimal_forage * 0.5)"
+    rate: "base_evaporation * hog_evap_mult * (1 + (hog_dormant + hog_active) / optimal_forage * 0.3)"
 
   hog_deep_percolation:
     from: hog_moisture
@@ -328,25 +433,40 @@ flows:
   hog_manure:
     from: external
     to: hog_som
-    rate: "hog_grazing * manure_addition_rate"
+    rate: "(hog_grazing_active + hog_grazing_dormant) * manure_addition_rate"
 
   # ============================================================
-  # FLOWS - FRANKIE'S PASTURE
+  # FRANKIE'S PASTURE (South)
   # ============================================================
-  south_growth:
+  south_active_growth:
     from: external
-    to: south_forage
-    rate: "current_paddock == 5 ? 0 : (max_growth_rate * season_multiplier * (south_forage / optimal_forage) * (1 - south_forage / optimal_forage) * (south_moisture / moisture_optimal) * (1 + south_som * som_growth_multiplier / 100))"
+    to: south_active
+    rate: "current_paddock == 5 ? 0 : max_growth_rate * season_multiplier * (south_active / optimal_forage) * (1 - (south_dormant + south_active) / optimal_forage) * (south_moisture / moisture_optimal) * (1 + south_som * som_growth_multiplier / 100)"
 
-  south_grazing:
-    from: south_forage
+  south_greenup:
+    from: south_dormant
+    to: south_active
+    rate: "season_multiplier > greenup_threshold ? south_dormant * greenup_rate : 0"
+
+  south_dormant_decay:
+    from: south_dormant
     to: external
-    rate: "current_paddock == 5 ? min((total_herd_weight * daily_intake_rate) / south_acres, south_forage * 0.15) : 0"
+    rate: "max(0, (south_dormant - dormant_min) * dormant_decay_rate)"
+
+  south_grazing_active:
+    from: south_active
+    to: external
+    rate: "current_paddock == 5 ? min((total_herd_weight * daily_intake_rate) / south_acres, south_active * max_daily_consumption) : 0"
+
+  south_grazing_dormant:
+    from: south_dormant
+    to: external
+    rate: "current_paddock == 5 ? min(max(0, (total_herd_weight * daily_intake_rate) / south_acres - south_grazing_active) * dormant_palatability, (south_dormant - dormant_min) * max_daily_consumption) : 0"
 
   south_trampling:
-    from: south_forage
-    to: external
-    rate: "south_grazing * trampling_loss_rate"
+    from: south_active
+    to: south_dormant
+    rate: "(south_grazing_active + south_grazing_dormant) * trampling_loss_rate * 0.5"
 
   south_rain:
     from: external
@@ -356,7 +476,7 @@ flows:
   south_evapotranspiration:
     from: south_moisture
     to: external
-    rate: "base_evaporation * south_evap_mult * (1 + south_forage / optimal_forage * 0.5)"
+    rate: "base_evaporation * south_evap_mult * (1 + (south_dormant + south_active) / optimal_forage * 0.3)"
 
   south_deep_percolation:
     from: south_moisture
@@ -371,7 +491,7 @@ flows:
   south_manure:
     from: external
     to: south_som
-    rate: "south_grazing * manure_addition_rate"
+    rate: "(south_grazing_active + south_grazing_dormant) * manure_addition_rate"
 
   # ============================================================
   # ROTATION TRACKING
@@ -380,4 +500,3 @@ flows:
     from: external
     to: rotation_timer
     rate: 1
-    # This just counts days - you'll manually reset when rotating paddocks
