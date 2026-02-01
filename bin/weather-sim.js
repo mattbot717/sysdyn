@@ -10,6 +10,7 @@ import { loadModel } from '../lib/loader.js';
 import { validateModel, sparkline } from '../lib/engine.js';
 import { getCollinsvilleWeather, summarizeWeather, displayWeatherSummary } from '../lib/weather.js';
 import { getRotationSchedule as loadRotationSchedule, displayRotationHistory } from '../lib/rotation.js';
+import { PADDOCK_KEYS, getPaddockNamesMap, FORAGE_THRESHOLDS, getForageStatus } from '../lib/config.js';
 
 /**
  * Run simulation with real weather data
@@ -123,14 +124,8 @@ async function displayResults(results, model, weatherDays) {
   // Key paddock forage levels
   console.log('📊 PADDOCK FORAGE LEVELS:\n');
 
-  const paddocks = ['cce', 'ccw', 'big', 'hog', 'south'];
-  const paddockNames = {
-    cce: 'Cedar Crest East',
-    ccw: 'Cedar Crest West',
-    big: 'Big Pasture',
-    hog: 'Hog Pasture',
-    south: "Frankie's Pasture",
-  };
+  const paddocks = PADDOCK_KEYS;
+  const paddockNames = getPaddockNamesMap();
 
   // Calculate total grazing days per paddock
   const schedule = await getRotationSchedule();
@@ -157,7 +152,8 @@ async function displayResults(results, model, weatherDays) {
       const max = Math.max(...data);
 
       const spark = sparkline(data);
-      const status = final < 500 ? '⚠️  CRITICAL' : final < 1000 ? '⚠️  LOW' : '✓ OK';
+      const forageStatus = getForageStatus(final);
+      const status = forageStatus.status === 'healthy' ? '✓ OK' : `⚠️  ${forageStatus.status.toUpperCase()}`;
       const daysGrazed = grazingDays[paddockIdMap[paddock]] || 0;
       const daysRested = weatherDays.length - daysGrazed;
 
@@ -238,24 +234,19 @@ async function main() {
     // Critical warnings
     console.log('\n⚠️  WARNINGS:\n');
 
-    const paddocks = ['cce', 'ccw', 'big', 'hog', 'south'];
-    const paddockNames = {
-      cce: 'Cedar Crest East',
-      ccw: 'Cedar Crest West',
-      big: 'Big Pasture',
-      hog: 'Hog Pasture',
-      south: "Frankie's Pasture",
-    };
+    const warnPaddocks = PADDOCK_KEYS;
+    const warnPaddockNames = getPaddockNamesMap();
 
-    for (const paddock of paddocks) {
+    for (const paddock of warnPaddocks) {
       const forageName = `${paddock}_forage`;
       if (results.stocks[forageName]) {
         const final = results.stocks[forageName][results.stocks[forageName].length - 1];
-        if (final < 500) {
-          console.log(`  ❌ ${paddockNames[paddock]}: CRITICAL forage level (${final.toFixed(0)} kg/acre)`);
+        const status = getForageStatus(final);
+        if (status.status === 'critical') {
+          console.log(`  ❌ ${warnPaddockNames[paddock]}: CRITICAL forage level (${final.toFixed(0)} kg/acre)`);
           console.log(`     → Hay feeding REQUIRED if grazing`);
-        } else if (final < 1000) {
-          console.log(`  ⚠️  ${paddockNames[paddock]}: LOW forage (${final.toFixed(0)} kg/acre)`);
+        } else if (status.status === 'low') {
+          console.log(`  ⚠️  ${warnPaddockNames[paddock]}: LOW forage (${final.toFixed(0)} kg/acre)`);
           console.log(`     → Monitor closely, consider supplementation`);
         }
       }

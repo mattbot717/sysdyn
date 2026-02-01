@@ -9,6 +9,7 @@
 
 import { displayForecastSummary, projectPaddockRecovery, getForecast } from '../lib/forecast.js';
 import { loadModel } from '../lib/loader.js';
+import { PADDOCK_KEYS, getPaddockNamesMap, FORAGE_THRESHOLDS } from '../lib/config.js';
 
 // Current paddock status (from last simulation)
 // TODO: Load this from simulation state file
@@ -20,13 +21,7 @@ const CURRENT_STATUS = {
   south: { forage: 1200, moisture: 75 },  // Recently seeded, recovering with good creek moisture
 };
 
-const PADDOCK_NAMES = {
-  cce: 'Cedar Crest East',
-  ccw: 'Cedar Crest West',
-  big: 'Big Pasture',
-  hog: 'Hog Pasture',
-  south: "Frankie's Pasture",
-};
+const PADDOCK_NAMES = getPaddockNamesMap();
 
 async function main() {
   try {
@@ -42,7 +37,7 @@ async function main() {
     // Project recovery for each paddock
     console.log('📊 PADDOCK RECOVERY PROJECTIONS (14 days, no grazing):\n');
 
-    const paddocks = ['cce', 'ccw', 'big', 'hog', 'south'];
+    const paddocks = PADDOCK_KEYS;
     const projections = [];
 
     for (const paddock of paddocks) {
@@ -54,7 +49,7 @@ async function main() {
         max_growth_rate: model.params.max_growth_rate,
         optimal_forage: model.params.optimal_forage,
         season_multiplier: model.params.season_multiplier,
-        target_forage: 2000, // Healthy grazing threshold
+        target_forage: FORAGE_THRESHOLDS.healthy, // Healthy grazing threshold
       };
 
       const projection = await projectPaddockRecovery(
@@ -72,9 +67,9 @@ async function main() {
 
     // Display projections
     for (const proj of projections) {
-      const status = proj.finalForage > 2000 ? '✅ READY' :
-                     proj.finalForage > 1500 ? '⚠️  MARGINAL' :
-                     proj.finalForage > 1000 ? '⚠️  LOW' : '❌ CRITICAL';
+      const status = proj.finalForage > FORAGE_THRESHOLDS.healthy ? '✅ READY' :
+                     proj.finalForage > FORAGE_THRESHOLDS.marginal ? '⚠️  MARGINAL' :
+                     proj.finalForage > FORAGE_THRESHOLDS.low ? '⚠️  LOW' : '❌ CRITICAL';
 
       const currentlyGrazing = proj.id === 'big' ? ' (CURRENTLY GRAZING)' : '';
 
@@ -90,8 +85,8 @@ async function main() {
     console.log('══════════════════════════════════════════════════════════');
     console.log('\n🎯 ROTATION RECOMMENDATIONS:\n');
 
-    const ready = projections.filter(p => p.finalForage > 2000 && p.id !== 'big');
-    const marginal = projections.filter(p => p.finalForage > 1500 && p.finalForage <= 2000 && p.id !== 'big');
+    const ready = projections.filter(p => p.finalForage > FORAGE_THRESHOLDS.healthy && p.id !== 'big');
+    const marginal = projections.filter(p => p.finalForage > FORAGE_THRESHOLDS.marginal && p.finalForage <= FORAGE_THRESHOLDS.healthy && p.id !== 'big');
 
     if (ready.length > 0) {
       console.log('  ✅ READY TO GRAZE (> 2000 kg/acre):');

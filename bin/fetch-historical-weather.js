@@ -8,24 +8,20 @@
  */
 
 import { writeFile } from 'fs/promises';
+import { LOCATION, WEATHER_API } from '../lib/config.js';
 
-const COORDS = {
-  lat: 33.5723,
-  lon: -96.9507,
-};
-
-const CHUNK_SIZE = 92; // API allows max 93, we use 92 to be safe
+const CHUNK_SIZE = WEATHER_API.maxPastDays; // API allows max 93, we use 92 to be safe
 
 /**
  * Fetch weather data for a specific date range
  */
 async function fetchChunk(endDate, pastDays) {
-  const url = `https://api.open-meteo.com/v1/forecast?` +
-    `latitude=${COORDS.lat}&longitude=${COORDS.lon}` +
+  const url = `${WEATHER_API.baseUrl}?` +
+    `latitude=${LOCATION.latitude}&longitude=${LOCATION.longitude}` +
     `&end_date=${endDate}` +
     `&past_days=${pastDays}` +
     `&daily=precipitation_sum,temperature_2m_max,temperature_2m_min,et0_fao_evapotranspiration` +
-    `&temperature_unit=fahrenheit&timezone=America/Chicago`;
+    `&temperature_unit=${WEATHER_API.temperatureUnit}&timezone=${WEATHER_API.timezone}`;
 
   console.log(`  Fetching: ${endDate} going back ${pastDays} days...`);
 
@@ -57,7 +53,7 @@ function subtractDays(dateString, days) {
 async function fetchFullHistory(totalDays = 365) {
   console.log('\n📡 Fetching historical weather data in chunks...\n');
   console.log(`  Target: ${totalDays} days`);
-  console.log(`  Coordinates: ${COORDS.lat}°N, ${COORDS.lon}°W`);
+  console.log(`  Location: ${LOCATION.name} (${LOCATION.latitude}°N, ${Math.abs(LOCATION.longitude)}°W)`);
   console.log(`  Chunk size: ${CHUNK_SIZE} days\n`);
 
   const today = new Date().toISOString().split('T')[0];
@@ -126,11 +122,11 @@ async function main() {
 
     // Also fetch current forecast
     console.log('📡 Fetching current forecast (14 days)...\n');
-    const forecastUrl = `https://api.open-meteo.com/v1/forecast?` +
-      `latitude=${COORDS.lat}&longitude=${COORDS.lon}` +
+    const forecastUrl = `${WEATHER_API.baseUrl}?` +
+      `latitude=${LOCATION.latitude}&longitude=${LOCATION.longitude}` +
       `&forecast_days=14` +
       `&daily=precipitation_sum,temperature_2m_max,temperature_2m_min,et0_fao_evapotranspiration` +
-      `&temperature_unit=fahrenheit&timezone=America/Chicago`;
+      `&temperature_unit=${WEATHER_API.temperatureUnit}&timezone=${WEATHER_API.timezone}`;
 
     const forecastResponse = await fetch(forecastUrl);
     const forecastData = await forecastResponse.json();
@@ -147,9 +143,9 @@ async function main() {
     // Save to file
     const archive = {
       metadata: {
-        location: 'Collinsville, TX',
-        latitude: COORDS.lat,
-        longitude: COORDS.lon,
+        location: LOCATION.name,
+        latitude: LOCATION.latitude,
+        longitude: LOCATION.longitude,
         fetched: new Date().toISOString(),
         historicalDays: historical.time.length,
         forecastDays: 14,
