@@ -154,17 +154,18 @@ stocks:
     initial: 3.8
 
   # ============================================================
-  # HOG PASTURE (Creek Access) - Short rotation, healthy
-  # Grazed Jan 17-22 (5 days only), creek moisture
+  # HOG PASTURE (Creek Access) - Recently grazed, recovering
+  # Grazed Jan 17-22 (5 days), now resting 9 days
+  # Calculation: ~1600 start - 255 grazed + 40 regrown = ~1385 total
   # ============================================================
   hog_dormant:
-    initial: 1100
+    initial: 850       # Some trampled to dormant during grazing
     min: 300
   hog_active:
-    initial: 500       # Creek keeps some green
+    initial: 350       # Active grazed first, slow winter recovery
     min: 0
   hog_moisture:
-    initial: 80        # Wettest - creek seepage
+    initial: 75        # Good - creek seepage, but some drawn down
   hog_som:
     initial: 4.0
 

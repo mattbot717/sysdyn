@@ -1,0 +1,424 @@
+name: grazing-rotation-annual-v2
+description: Pyrennial Farms - Annual forage with weather time series integration
+
+# =============================================================================
+# PYRENNIAL FARMS - WEATHER-INTEGRATED ANNUAL FORAGE SYSTEM
+# =============================================================================
+# Version 2: Full time series integration (Option 1A - Hybrid approach)
+#
+# WEATHER INTEGRATION:
+# - Pre-computed: Temperature multipliers, lifecycle stages, moisture stress
+# - Dynamic: Soil moisture, forage biomass, SOM, carrying capacity
+# - Feedback loops preserved: Grazing → moisture → growth → biomass
+#
+# TIME SERIES PARAMETERS (passed to simulation):
+# - cool_temp_mult: Cool-season temperature growth multiplier
+# - cce_lifecycle, ccw_lifecycle, big_lifecycle, hog_lifecycle, south_lifecycle
+# - moisture_stress_base: Weather-driven moisture stress
+#
+# Last updated: 2026-02-02
+# =============================================================================
+
+params:
+  # ============================================================
+  # HERD CHARACTERISTICS
+  # ============================================================
+  herd_count: 14
+  total_herd_weight: 7800  # kg (3*400 + 11*600)
+  daily_intake_rate: 0.025  # 2.5% of body weight per day
+
+  # Rotation control
+  current_paddock: 3     # 1=CCE, 2=CCW, 3=Big, 4=Hog, 5=South
+  rotation_days: 14
+
+  # ============================================================
+  # PADDOCK ACREAGE
+  # ============================================================
+  cce_acres: 8
+  ccw_acres: 8
+  big_acres: 9
+  hog_acres: 5
+  south_acres: 8
+
+  # ============================================================
+  # GROWTH PARAMETERS
+  # ============================================================
+  cool_season_max_growth: 50    # kg/acre/day at peak
+  warm_season_max_growth: 100
+  max_forage_density: 2500      # kg/acre carrying capacity
+  min_residual: 200             # kg/acre don't graze below this
+
+  # ============================================================
+  # MOISTURE PARAMETERS
+  # ============================================================
+  base_rain_input: 3       # mm/day average
+  base_evaporation: 4      # mm/day baseline
+
+  # Paddock-specific evaporation multipliers
+  cce_evap_mult: 1.3       # Exposed hilltop
+  ccw_evap_mult: 0.9       # Silvopasture
+  big_evap_mult: 0.8       # Wooded flood plain
+  hog_evap_mult: 0.7       # Creek + trees
+  south_evap_mult: 0.85    # Creek runoff
+
+  # Water bonuses (flood plain, creek access)
+  big_flood_bonus: 0.5
+  hog_flood_bonus: 0.3
+  south_flood_bonus: 0.4
+
+  field_capacity: 100
+  moisture_optimal: 60
+
+  # ============================================================
+  # SOM PARAMETERS
+  # ============================================================
+  som_mineralization_rate: 0.0001
+  manure_addition_rate: 0.00005
+  som_growth_multiplier: 15
+
+  # ============================================================
+  # GRAZING PARAMETERS
+  # ============================================================
+  trampling_loss_rate: 0.25
+  max_daily_consumption: 0.15
+
+# =============================================================================
+# STOCKS
+# =============================================================================
+
+stocks:
+  # CEDAR CREST EAST
+  cce_forage:
+    initial: 400
+    min: 200
+  cce_moisture:
+    initial: 45
+  cce_som:
+    initial: 3.2
+
+  # CEDAR CREST WEST
+  ccw_forage:
+    initial: 800
+    min: 200
+  ccw_moisture:
+    initial: 58
+  ccw_som:
+    initial: 3.5
+
+  # BIG PASTURE
+  big_forage:
+    initial: 600
+    min: 200
+  big_moisture:
+    initial: 72
+  big_som:
+    initial: 3.8
+
+  # HOG PASTURE
+  hog_forage:
+    initial: 950
+    min: 200
+  hog_moisture:
+    initial: 78
+  hog_som:
+    initial: 4.0
+
+  # FRANKIE'S PASTURE
+  south_forage:
+    initial: 250
+    min: 200
+  south_moisture:
+    initial: 68
+  south_som:
+    initial: 3.3
+
+  # ROTATION TRACKING
+  rotation_timer:
+    initial: 9
+
+# =============================================================================
+# FLOWS - Weather-Integrated Growth
+# =============================================================================
+# Each paddock growth flow combines:
+# - cool_temp_mult[t]: Pre-computed temperature multiplier (time series)
+# - lifecycle_mult[t]: Pre-computed lifecycle stage (time series)
+# - moisture_mult: DYNAMIC (current_moisture / optimal)
+# - capacity_mult: DYNAMIC (1 - current_forage / max)
+# - som_mult: DYNAMIC (1 + current_som * effect)
+# =============================================================================
+
+flows:
+  # ============================================================
+  # CEDAR CREST EAST
+  # ============================================================
+  cce_growth:
+    from: external
+    to: cce_forage
+    rate: |
+      (current_paddock != 1) *
+      cool_season_max_growth *
+      cool_temp_mult *
+      cce_lifecycle *
+      (cce_moisture / moisture_optimal) *
+      (1 - cce_forage / max_forage_density) *
+      (1 + cce_som * som_growth_multiplier / 100)
+
+  cce_grazing:
+    from: cce_forage
+    to: external
+    rate: |
+      (current_paddock == 1) * min(
+        (total_herd_weight * daily_intake_rate) / cce_acres,
+        max(cce_forage - min_residual, 0) * max_daily_consumption
+      )
+
+  cce_trampling:
+    from: cce_forage
+    to: external
+    rate: "cce_grazing * trampling_loss_rate"
+
+  cce_rain:
+    from: external
+    to: cce_moisture
+    rate: base_rain_input
+
+  cce_evap:
+    from: cce_moisture
+    to: external
+    rate: "base_evaporation * cce_evap_mult"
+
+  cce_som_addition:
+    from: external
+    to: cce_som
+    rate: "(current_paddock == 1) * manure_addition_rate"
+
+  cce_som_decay:
+    from: cce_som
+    to: external
+    rate: "cce_som * som_mineralization_rate"
+
+  # ============================================================
+  # CEDAR CREST WEST
+  # ============================================================
+  ccw_growth:
+    from: external
+    to: ccw_forage
+    rate: |
+      (current_paddock != 2) *
+      cool_season_max_growth *
+      cool_temp_mult *
+      ccw_lifecycle *
+      (ccw_moisture / moisture_optimal) *
+      (1 - ccw_forage / max_forage_density) *
+      (1 + ccw_som * som_growth_multiplier / 100)
+
+  ccw_grazing:
+    from: ccw_forage
+    to: external
+    rate: |
+      (current_paddock == 2) * min(
+        (total_herd_weight * daily_intake_rate) / ccw_acres,
+        max(ccw_forage - min_residual, 0) * max_daily_consumption
+      )
+
+  ccw_trampling:
+    from: ccw_forage
+    to: external
+    rate: "ccw_grazing * trampling_loss_rate"
+
+  ccw_rain:
+    from: external
+    to: ccw_moisture
+    rate: base_rain_input
+
+  ccw_evap:
+    from: ccw_moisture
+    to: external
+    rate: "base_evaporation * ccw_evap_mult"
+
+  ccw_som_addition:
+    from: external
+    to: ccw_som
+    rate: "(current_paddock == 2) * manure_addition_rate"
+
+  ccw_som_decay:
+    from: ccw_som
+    to: external
+    rate: "ccw_som * som_mineralization_rate"
+
+  # ============================================================
+  # BIG PASTURE
+  # ============================================================
+  big_growth:
+    from: external
+    to: big_forage
+    rate: |
+      (current_paddock != 3) *
+      cool_season_max_growth *
+      cool_temp_mult *
+      big_lifecycle *
+      (big_moisture / moisture_optimal) *
+      (1 - big_forage / max_forage_density) *
+      (1 + big_som * som_growth_multiplier / 100)
+
+  big_grazing:
+    from: big_forage
+    to: external
+    rate: |
+      (current_paddock == 3) * min(
+        (total_herd_weight * daily_intake_rate) / big_acres,
+        max(big_forage - min_residual, 0) * max_daily_consumption
+      )
+
+  big_trampling:
+    from: big_forage
+    to: external
+    rate: "big_grazing * trampling_loss_rate"
+
+  big_rain:
+    from: external
+    to: big_moisture
+    rate: "base_rain_input + big_flood_bonus"
+
+  big_evap:
+    from: big_moisture
+    to: external
+    rate: "base_evaporation * big_evap_mult"
+
+  big_som_addition:
+    from: external
+    to: big_som
+    rate: "(current_paddock == 3) * manure_addition_rate"
+
+  big_som_decay:
+    from: big_som
+    to: external
+    rate: "big_som * som_mineralization_rate"
+
+  # ============================================================
+  # HOG PASTURE
+  # ============================================================
+  hog_growth:
+    from: external
+    to: hog_forage
+    rate: |
+      (current_paddock != 4) *
+      cool_season_max_growth *
+      cool_temp_mult *
+      hog_lifecycle *
+      (hog_moisture / moisture_optimal) *
+      (1 - hog_forage / max_forage_density) *
+      (1 + hog_som * som_growth_multiplier / 100)
+
+  hog_grazing:
+    from: hog_forage
+    to: external
+    rate: |
+      (current_paddock == 4) * min(
+        (total_herd_weight * daily_intake_rate) / hog_acres,
+        max(hog_forage - min_residual, 0) * max_daily_consumption
+      )
+
+  hog_trampling:
+    from: hog_forage
+    to: external
+    rate: "hog_grazing * trampling_loss_rate"
+
+  hog_rain:
+    from: external
+    to: hog_moisture
+    rate: "base_rain_input + hog_flood_bonus"
+
+  hog_evap:
+    from: hog_moisture
+    to: external
+    rate: "base_evaporation * hog_evap_mult"
+
+  hog_som_addition:
+    from: external
+    to: hog_som
+    rate: "(current_paddock == 4) * manure_addition_rate"
+
+  hog_som_decay:
+    from: hog_som
+    to: external
+    rate: "hog_som * som_mineralization_rate"
+
+  # ============================================================
+  # FRANKIE'S PASTURE (South)
+  # ============================================================
+  south_growth:
+    from: external
+    to: south_forage
+    rate: |
+      (current_paddock != 5) *
+      cool_season_max_growth *
+      cool_temp_mult *
+      south_lifecycle *
+      (south_moisture / moisture_optimal) *
+      (1 - south_forage / max_forage_density) *
+      (1 + south_som * som_growth_multiplier / 100)
+
+  south_grazing:
+    from: south_forage
+    to: external
+    rate: |
+      (current_paddock == 5) * min(
+        (total_herd_weight * daily_intake_rate) / south_acres,
+        max(south_forage - min_residual, 0) * max_daily_consumption
+      )
+
+  south_trampling:
+    from: south_forage
+    to: external
+    rate: "south_grazing * trampling_loss_rate"
+
+  south_rain:
+    from: external
+    to: south_moisture
+    rate: "base_rain_input + south_flood_bonus"
+
+  south_evap:
+    from: south_moisture
+    to: external
+    rate: "base_evaporation * south_evap_mult"
+
+  south_som_addition:
+    from: external
+    to: south_som
+    rate: "(current_paddock == 5) * manure_addition_rate"
+
+  south_som_decay:
+    from: south_som
+    to: external
+    rate: "south_som * som_mineralization_rate"
+
+  # ============================================================
+  # ROTATION TIMER
+  # ============================================================
+  rotation_timer_increment:
+    from: external
+    to: rotation_timer
+    rate: 1
+
+# =============================================================================
+# NOTES - How to Run This Model
+# =============================================================================
+# 1. Load weather data and preprocess:
+#    const timeSeries = prepareTimeSeriesForSimulation(weatherData);
+#
+# 2. Pass time series to simulation:
+#    simulate(model, {
+#      steps: timeSeries.steps,
+#      timeSeriesParams: {
+#        cool_temp_mult: timeSeries.cool_temp_mult,
+#        cce_lifecycle: lifecycles.cce_cool_lifecycle,
+#        ccw_lifecycle: lifecycles.ccw_cool_lifecycle,
+#        big_lifecycle: lifecycles.big_cool_lifecycle,
+#        hog_lifecycle: lifecycles.hog_cool_lifecycle,
+#        south_lifecycle: lifecycles.south_cool_lifecycle,
+#      }
+#    });
+#
+# 3. Results will show weather-driven growth with dynamic feedback
+# =============================================================================
