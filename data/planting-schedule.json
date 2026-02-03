@@ -1,0 +1,198 @@
+{
+  "metadata": {
+    "farm": "Pyrennial Farms, Collinsville TX",
+    "created": "2026-02-02",
+    "description": "Paddock-specific planting dates for annual forage rotation system",
+    "note": "This tracks when cool-season and warm-season mixes were planted in each paddock"
+  },
+  "paddocks": {
+    "cce": {
+      "name": "Cedar Crest East",
+      "acres": 8,
+      "characteristics": "Hilltop, exposed, high evaporation",
+      "cool_season": {
+        "2025": {
+          "planted": "2025-10-31",
+          "species": "Rye + clover mix (purchased blend)",
+          "seeding_rate_lbs_acre": 25,
+          "notes": "Typical seeding date, good establishment before drought"
+        }
+      },
+      "warm_season": {
+        "2026": {
+          "planned": "2026-06-01",
+          "species": "Sorghum-sudan + pearl millet + cowpeas + summer clover",
+          "seeding_rate_lbs_acre": 30,
+          "notes": "Not yet planted - planning for early June"
+        }
+      }
+    },
+    "ccw": {
+      "name": "Cedar Crest West",
+      "acres": 8,
+      "characteristics": "Silvopasture, tree cover, better moisture retention",
+      "cool_season": {
+        "2025": {
+          "planted": "2025-10-31",
+          "species": "Rye + clover mix (purchased blend)",
+          "seeding_rate_lbs_acre": 25,
+          "notes": "Same as CCE, tree cover helped during drought"
+        }
+      },
+      "warm_season": {
+        "2026": {
+          "planned": "2026-06-01",
+          "species": "Sorghum-sudan + pearl millet + cowpeas + summer clover",
+          "seeding_rate_lbs_acre": 30,
+          "notes": "May plant earlier if soil temps warm under tree canopy"
+        }
+      }
+    },
+    "big": {
+      "name": "Big Pasture",
+      "acres": 9,
+      "characteristics": "Flood plain, wooded, excellent moisture",
+      "cool_season": {
+        "2025": {
+          "planted": "2025-10-31",
+          "species": "Rye + clover mix (purchased blend)",
+          "seeding_rate_lbs_acre": 25,
+          "notes": "Flood plain provided good establishment conditions"
+        }
+      },
+      "warm_season": {
+        "2026": {
+          "planned": "2026-06-01",
+          "species": "Sorghum-sudan + pearl millet + cowpeas + summer clover",
+          "seeding_rate_lbs_acre": 35,
+          "notes": "May increase seeding rate due to larger acreage and high productivity"
+        }
+      }
+    },
+    "hog": {
+      "name": "Hog Pasture",
+      "acres": 5,
+      "characteristics": "Creek access, trees, lowest evaporation",
+      "cool_season": {
+        "2025": {
+          "planted": "2025-10-31",
+          "species": "Rye + clover mix (purchased blend)",
+          "seeding_rate_lbs_acre": 25,
+          "notes": "Creek moisture helped establishment even during drought"
+        }
+      },
+      "warm_season": {
+        "2026": {
+          "planned": "2026-06-01",
+          "species": "Sorghum-sudan + pearl millet + cowpeas + summer clover",
+          "seeding_rate_lbs_acre": 30,
+          "notes": "Small paddock, may experiment with higher cowpea ratio for nitrogen"
+        }
+      }
+    },
+    "south": {
+      "name": "Frankie's Pasture",
+      "acres": 8,
+      "characteristics": "Creek runoff, good moisture, named after cattle",
+      "cool_season": {
+        "2025": {
+          "planted": "2025-12-25",
+          "species": "Rye + clover mix (purchased blend)",
+          "seeding_rate_lbs_acre": 25,
+          "notes": "LATE SEEDING during 54-day drought. Only 10-15% green shoots by late Jan. Grazed Dec 10-24, then seeded after herd moved off."
+        }
+      },
+      "warm_season": {
+        "2026": {
+          "planned": "2026-06-01",
+          "species": "Sorghum-sudan + pearl millet + cowpeas + summer clover",
+          "seeding_rate_lbs_acre": 30,
+          "notes": "May benefit from earlier planting if cool-season mix fails to establish well"
+        }
+      }
+    }
+  },
+  "seed_mixes": {
+    "cool_season_blend": {
+      "name": "Winter Grazing Mix",
+      "source": "Purchased blend (brand/supplier unknown)",
+      "estimated_composition": {
+        "annual_ryegrass": "30-40%",
+        "cereal_rye": "30-40%",
+        "crimson_clover": "15-20%",
+        "other_covers": "10-15%",
+        "note": "May include daikon radish, other brassicas"
+      },
+      "seeding_window": "Late October - November (optimal), can seed through December if needed",
+      "days_to_grazing": 42,
+      "days_to_grazing_note": "Under normal moisture. Drought can delay 2-4 weeks or more.",
+      "termination": "Heat death in May-June when temps exceed 85°F sustained"
+    },
+    "warm_season_blend": {
+      "name": "Summer Annual Mix",
+      "composition": {
+        "sorghum_sudan": "40%",
+        "pearl_millet": "30%",
+        "cowpeas": "20%",
+        "summer_clover": "10%"
+      },
+      "planting_window": "May-June after soil temps exceed 60°F",
+      "days_to_first_grazing": 40,
+      "regrowth_period": 35,
+      "grazings_per_season": "2-3 (possibly 4 in long season)",
+      "termination": "Frost kill in October-November when temps drop below 32°F"
+    }
+  },
+  "grazing_history": {
+    "note": "Track when each paddock was grazed to inform planting timing",
+    "2025-2026": [
+      {
+        "paddock": "south",
+        "start": "2025-12-10",
+        "end": "2025-12-24",
+        "days": 14,
+        "planted_after": "2025-12-25",
+        "notes": "Seeded immediately after herd moved off"
+      },
+      {
+        "paddock": "ccw",
+        "start": "2025-12-24",
+        "end": "2026-01-03",
+        "days": 10
+      },
+      {
+        "paddock": "cce",
+        "start": "2026-01-03",
+        "end": "2026-01-17",
+        "days": 14,
+        "hay_required": true
+      },
+      {
+        "paddock": "hog",
+        "start": "2026-01-17",
+        "end": "2026-01-22",
+        "days": 5
+      },
+      {
+        "paddock": "big",
+        "start": "2026-01-22",
+        "end": null,
+        "days": null,
+        "current": true,
+        "hay_required": true
+      }
+    ]
+  },
+  "planning": {
+    "cool_season_2026": {
+      "target_seeding": "2026-10-25 to 2026-11-05",
+      "strategy": "Seed ALL paddocks by early November to avoid late-season drought vulnerability",
+      "lessons_learned": "Dec 25 seeding (Frankie's) was too late and coincided with drought onset. Earlier seeding = better establishment before winter stress."
+    },
+    "warm_season_2026": {
+      "target_planting": "2026-05-25 to 2026-06-10",
+      "strategy": "Stagger plantings by 1-2 weeks to spread out grazing windows and labor",
+      "experimental": "Consider interseeding summer mix into cool-season stands in late April (no-till drill) to reduce transition gap"
+    }
+  }
+}

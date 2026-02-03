@@ -1,0 +1,379 @@
+name: grazing-rotation-annual
+description: Pyrennial Farms - Annual forage rotation system (cool + warm season), Collinsville TX
+
+# =============================================================================
+# PYRENNIAL FARMS - ANNUAL FORAGE SYSTEM
+# =============================================================================
+# 5 paddocks, 14 head cattle, adaptive rotational grazing
+# 100% ANNUAL ROTATION - No perennial bermudagrass
+#
+# FORAGE SYSTEM:
+# - Cool-season: Rye + clover + covers (Oct-May, seeded late Oct/Nov)
+# - Warm-season: Sorghum-sudan + pearl millet + cowpeas + summer clover (May-Oct)
+#
+# CURRENT STATE: Late January 2026
+# - All paddocks seeded with cool-season mix (various dates)
+# - 54-day drought (Dec 1 - Jan 23) severely impacted winter forage establishment
+# - Current paddock: Big Pasture (since Jan 22, 2026)
+#
+# Last updated: 2026-02-02
+# =============================================================================
+
+params:
+  # ============================================================
+  # HERD CHARACTERISTICS
+  # ============================================================
+  herd_count: 14
+  yearlings: 3           # 400kg each
+  mature_cattle: 11      # 600kg each
+  total_herd_weight: 7800  # kg (3*400 + 11*600)
+  daily_intake_rate: 0.025  # 2.5% of body weight per day (195 kg/day total)
+
+  # Paddock IDs: 1=CCE, 2=CCW, 3=Big, 4=Hog, 5=South (Frankie's)
+  current_paddock: 3     # Big Pasture (since Jan 22, 2026)
+  rotation_days: 14      # Default days per paddock
+
+  # ============================================================
+  # PADDOCK ACREAGE
+  # ============================================================
+  cce_acres: 8           # Cedar Crest East - hilltop, exposed
+  ccw_acres: 8           # Cedar Crest West - silvopasture, tree cover
+  big_acres: 9           # Big Pasture - flood plain, wooded
+  hog_acres: 5           # Hog Pasture - creek access
+  south_acres: 8         # Frankie's Pasture - creek runoff
+
+  total_acres: 38        # Total grazing area
+
+  # ============================================================
+  # FORAGE PARAMETERS
+  # ============================================================
+  max_forage_density: 2500  # kg/acre maximum standing forage
+  optimal_forage_density: 1500  # kg/acre for best animal performance
+
+  # Annual forage growth rates (kg/acre/day at peak)
+  cool_season_max_growth: 50    # Rye/clover peak growth rate
+  warm_season_max_growth: 100   # Sorghum-sudan peak (very fast!)
+
+  # ============================================================
+  # PLANTING DATES (Cool-Season Mix 2025-2026)
+  # ============================================================
+  # When was each paddock seeded with winter mix?
+  # Format: days since Oct 1, 2025 (day 0 = Oct 1)
+
+  cce_cool_plant_day: 30    # Oct 31, 2025 (typical seeding)
+  ccw_cool_plant_day: 30    # Oct 31, 2025
+  big_cool_plant_day: 30    # Oct 31, 2025
+  hog_cool_plant_day: 30    # Oct 31, 2025
+  south_cool_plant_day: 85  # Dec 25, 2025 (observed seeding date)
+
+  # Warm-season planting (future - not yet planted)
+  # Will be updated when summer crops go in
+  cce_warm_plant_day: 243   # June 1, 2026 (planned)
+  ccw_warm_plant_day: 243
+  big_warm_plant_day: 243
+  hog_warm_plant_day: 243
+  south_warm_plant_day: 243
+
+  # ============================================================
+  # MOISTURE / WEATHER (Collinsville, TX)
+  # ============================================================
+  base_rain_input: 3       # mm/day average
+  base_evaporation: 4      # mm/day baseline
+
+  # Paddock-specific evaporation multipliers
+  cce_evap_mult: 1.3       # Exposed hilltop - high evaporation
+  ccw_evap_mult: 0.9       # Silvopasture - tree shade reduces evap
+  big_evap_mult: 0.8       # Wooded flood plain
+  hog_evap_mult: 0.7       # Creek + trees - lowest evap
+  south_evap_mult: 0.85    # Creek runoff area
+
+  # Water infiltration bonuses (flood plain, creek access)
+  big_flood_bonus: 0.5     # Flood plain collects water
+  hog_flood_bonus: 0.3     # Creek seepage
+  south_flood_bonus: 0.4   # Creek runoff
+
+  field_capacity: 100      # mm maximum soil moisture
+  moisture_optimal: 60     # mm for best growth
+
+  # ============================================================
+  # SOIL ORGANIC MATTER
+  # ============================================================
+  som_mineralization_rate: 0.0001  # SOM decay to available nutrients
+  manure_addition_rate: 0.00005    # Grazing adds SOM
+  som_growth_multiplier: 15        # SOM effect on growth
+
+  # ============================================================
+  # GRAZING DYNAMICS
+  # ============================================================
+  trampling_loss_rate: 0.25    # 25% of forage trampled/wasted
+  max_daily_consumption: 0.15  # Can't consume >15% of standing forage/day
+  min_residual: 200            # kg/acre minimum residual (don't graze below this)
+
+# =============================================================================
+# STOCKS - Current state as of Jan 31, 2026
+# =============================================================================
+# Based on rotation history + drought impact:
+# - CCE: Grazed Jan 3-17, HAY REQUIRED (exposed, drought-stressed)
+# - CCW: Grazed Dec 24 - Jan 3, no hay (silvopasture retained moisture)
+# - Big: Currently grazed (since Jan 22), hay supplementation ongoing
+# - Hog: Grazed Jan 17-22 (5 days), creek moisture helped
+# - Frankie's: Resting since Dec 24, seeded Dec 25, ~10-15% emergence
+# =============================================================================
+
+stocks:
+  # ============================================================
+  # CEDAR CREST EAST (Hilltop, Exposed)
+  # ============================================================
+  # Seeded Oct 31, established Nov-Dec
+  # Drought-stressed, grazed heavily Jan 3-17
+  cce_forage:
+    initial: 400       # kg/acre - depleted from grazing, low from drought
+    min: 200           # Minimum residual
+  cce_moisture:
+    initial: 45        # mm - dry, hilltop exposed
+  cce_som:
+    initial: 3.2       # % - moderate SOM
+
+  # ============================================================
+  # CEDAR CREST WEST (Silvopasture)
+  # ============================================================
+  # Tree cover helped retain moisture during drought
+  # Grazed Dec 24 - Jan 3, no hay needed
+  ccw_forage:
+    initial: 800       # kg/acre - better due to tree protection
+    min: 200
+  ccw_moisture:
+    initial: 58        # mm - tree shade retained moisture
+  ccw_som:
+    initial: 3.5       # % - trees add organic matter
+
+  # ============================================================
+  # BIG PASTURE (Flood Plain, Wooded)
+  # ============================================================
+  # Currently being grazed (since Jan 22)
+  # Hay supplementation ongoing
+  big_forage:
+    initial: 600       # kg/acre - moderate, being grazed
+    min: 200
+  big_moisture:
+    initial: 72        # mm - flood plain holds water well
+  big_som:
+    initial: 3.8       # % - high from wooded flood plain
+
+  # ============================================================
+  # HOG PASTURE (Creek Access)
+  # ============================================================
+  # Grazed Jan 17-22 (5 days), short rotation
+  # Creek moisture helped during drought
+  hog_forage:
+    initial: 950       # kg/acre - good recovery, creek helped
+    min: 200
+  hog_moisture:
+    initial: 78        # mm - creek seepage, best moisture
+  hog_som:
+    initial: 4.0       # % - creek enrichment
+
+  # ============================================================
+  # FRANKIE'S PASTURE (Creek Runoff)
+  # ============================================================
+  # Seeded DEC 25 (during drought!) - poor establishment
+  # Observation: "10-15% green shoots near creek" by Jan 22
+  south_forage:
+    initial: 250       # kg/acre - very low, drought-stunted seedlings
+    min: 200
+  south_moisture:
+    initial: 68        # mm - creek runoff helps
+  south_som:
+    initial: 3.3       # % - moderate
+
+  # ============================================================
+  # ROTATION TRACKING
+  # ============================================================
+  rotation_timer:
+    initial: 9         # Days on Big Pasture (since Jan 22 → now Jan 31)
+
+  # ============================================================
+  # TIME TRACKING (for planting dates)
+  # ============================================================
+  # Track days since Oct 1, 2025 (start of cool-season year)
+  days_since_oct1:
+    initial: 122       # Jan 31, 2026 = 122 days since Oct 1
+
+# =============================================================================
+# FLOWS
+# =============================================================================
+# Each paddock has:
+# - Forage growth (using annual-forage.js functions)
+# - Grazing (when current paddock)
+# - Trampling loss
+# - Moisture: rain input, evapotranspiration, drainage
+# - SOM: manure addition, mineralization
+# =============================================================================
+
+flows:
+  # ============================================================
+  # CEDAR CREST EAST - Forage Growth
+  # ============================================================
+  cce_growth:
+    from: external
+    to: cce_forage
+    rate: |
+      # Annual forage growth (kg/acre/day)
+      # This will call annual-forage.js functions with:
+      # - days since planting
+      # - current temperature (from weather data)
+      # - moisture stress (based on cce_moisture)
+      #
+      # Simplified for now: use season multiplier approach
+      # TODO: Integrate with annual-forage.js getDynamicGrowth()
+
+      let season = (days_since_oct1 < 243) ? 'cool' : 'warm';
+      let max_growth = season === 'cool' ? cool_season_max_growth : warm_season_max_growth;
+      let days_since_plant = season === 'cool' ?
+        (days_since_oct1 - cce_cool_plant_day) :
+        (days_since_oct1 - cce_warm_plant_day);
+
+      # Lifecycle stage (simplified)
+      let lifecycle_mult = 0;
+      if (days_since_plant > 42 && days_since_plant < 150) {
+        lifecycle_mult = 1.0;  # Peak production
+      } else if (days_since_plant > 14 && days_since_plant <= 42) {
+        lifecycle_mult = (days_since_plant - 14) / 28;  # Establishing
+      }
+
+      # Moisture stress
+      let moisture_mult = cce_moisture / moisture_optimal;
+
+      # Logistic growth (carrying capacity)
+      let capacity_mult = 1 - (cce_forage / max_forage_density);
+
+      # SOM benefit
+      let som_mult = 1 + (cce_som * som_growth_multiplier / 100);
+
+      # Combined
+      (current_paddock != 1) * max_growth * lifecycle_mult * moisture_mult * capacity_mult * som_mult
+
+  cce_grazing:
+    from: cce_forage
+    to: external
+    rate: |
+      (current_paddock == 1) * min(
+        (total_herd_weight * daily_intake_rate) / cce_acres,
+        max((cce_forage - min_residual), 0) * max_daily_consumption
+      )
+
+  cce_trampling:
+    from: cce_forage
+    to: external
+    rate: "cce_grazing * trampling_loss_rate"
+
+  cce_rain:
+    from: external
+    to: cce_moisture
+    rate: base_rain_input
+
+  cce_evap:
+    from: cce_moisture
+    to: external
+    rate: "base_evaporation * cce_evap_mult"
+
+  cce_som_addition:
+    from: external
+    to: cce_som
+    rate: "(current_paddock == 1) * manure_addition_rate"
+
+  cce_som_decay:
+    from: cce_som
+    to: external
+    rate: "cce_som * som_mineralization_rate"
+
+  # ============================================================
+  # FRANKIE'S PASTURE - Example with explicit drought impact
+  # ============================================================
+  south_growth:
+    from: external
+    to: south_forage
+    rate: |
+      # Frankie's was seeded DEC 25 (day 85) during severe drought
+      # Model shows this should result in poor establishment
+
+      let days_since_plant = days_since_oct1 - south_cool_plant_day;
+
+      # Lifecycle (cool-season)
+      let lifecycle_mult = 0;
+      if (days_since_plant > 42 && days_since_plant < 150) {
+        lifecycle_mult = 1.0;
+      } else if (days_since_plant > 14 && days_since_plant <= 42) {
+        lifecycle_mult = (days_since_plant - 14) / 28;
+      }
+
+      # Moisture stress (key factor during drought)
+      let moisture_mult = south_moisture / moisture_optimal;
+
+      # Capacity
+      let capacity_mult = 1 - (south_forage / max_forage_density);
+
+      # SOM
+      let som_mult = 1 + (south_som * som_growth_multiplier / 100);
+
+      # Combined (note: no grazing, so always growing)
+      cool_season_max_growth * lifecycle_mult * moisture_mult * capacity_mult * som_mult
+
+  south_grazing:
+    from: south_forage
+    to: external
+    rate: |
+      (current_paddock == 5) * min(
+        (total_herd_weight * daily_intake_rate) / south_acres,
+        max((south_forage - min_residual), 0) * max_daily_consumption
+      )
+
+  south_trampling:
+    from: south_forage
+    to: external
+    rate: "south_grazing * trampling_loss_rate"
+
+  south_rain:
+    from: external
+    to: south_moisture
+    rate: "base_rain_input + south_flood_bonus"  # Creek runoff bonus
+
+  south_evap:
+    from: south_moisture
+    to: external
+    rate: "base_evaporation * south_evap_mult"
+
+  south_som_addition:
+    from: external
+    to: south_som
+    rate: "(current_paddock == 5) * manure_addition_rate"
+
+  south_som_decay:
+    from: south_som
+    to: external
+    rate: "south_som * som_mineralization_rate"
+
+  # ============================================================
+  # TIME TRACKING
+  # ============================================================
+  day_counter:
+    from: external
+    to: days_since_oct1
+    rate: 1  # Increment by 1 each day
+
+  rotation_timer_increment:
+    from: external
+    to: rotation_timer
+    rate: 1  # Days on current paddock
+
+# =============================================================================
+# NOTES
+# =============================================================================
+# This is a simplified model to demonstrate annual forage integration.
+# Full implementation should:
+# 1. Call annual-forage.js functions directly (getAnnualForageGrowth)
+# 2. Pass real weather data (temp, precip, ET)
+# 3. Track last grazing dates for warm-season regrowth
+# 4. Model transition periods (cool → warm season changeover)
+# 5. Add all 5 paddocks (currently only CCE and South shown as examples)
+# =============================================================================
