@@ -14,9 +14,11 @@ description: Pyrennial Farms - Annual forage with weather time series integratio
 # TIME SERIES PARAMETERS (passed to simulation):
 # - cool_temp_mult: Cool-season temperature growth multiplier
 # - cce_lifecycle, ccw_lifecycle, big_lifecycle, hog_lifecycle, south_lifecycle
-# - moisture_stress_base: Weather-driven moisture stress
+# - daily_precip: Actual daily precipitation (mm) from weather data
+# - daily_et: Actual daily reference evapotranspiration (mm) from weather data
+# - current_paddock: Which paddock the herd is grazing (1-5)
 #
-# Last updated: 2026-02-02
+# Last updated: 2026-02-05
 # =============================================================================
 
 params:
@@ -51,11 +53,14 @@ params:
   # ============================================================
   # MOISTURE PARAMETERS
   # ============================================================
-  base_rain_input: 3       # mm/day average
-  base_evaporation: 4      # mm/day baseline
+  # NOTE: Precipitation and ET are now driven by real weather time series
+  # (daily_precip, daily_et) passed from the weather archive.
+  # These static values are legacy fallback only.
+  base_rain_input: 3       # mm/day average (legacy fallback)
+  base_evaporation: 4      # mm/day baseline (legacy fallback)
 
   # Paddock-specific evaporation multipliers
-  cce_evap_mult: 1.3       # Exposed hilltop
+  cce_evap_mult: 1.15      # Exposed hilltop (dialed back from 1.3 - too aggressive year-round)
   ccw_evap_mult: 0.9       # Silvopasture
   big_evap_mult: 0.8       # Wooded flood plain
   hog_evap_mult: 0.7       # Creek + trees
@@ -64,7 +69,7 @@ params:
   # Water bonuses (flood plain, creek access)
   big_flood_bonus: 0.5
   hog_flood_bonus: 0.3
-  south_flood_bonus: 0.4
+  south_flood_bonus: 0.6    # Bumped: ice melt + creek runoff higher than modeled
 
   field_capacity: 100
   moisture_optimal: 60
@@ -88,11 +93,12 @@ params:
 
 stocks:
   # CEDAR CREST EAST
+  # Ground truth (Feb 5): muddy after ice melt, higher moisture than drought model predicted
   cce_forage:
     initial: 400
     min: 200
   cce_moisture:
-    initial: 45
+    initial: 55
   cce_som:
     initial: 3.2
 
@@ -124,11 +130,13 @@ stocks:
     initial: 4.0
 
   # FRANKIE'S PASTURE
+  # Ground truth (Feb 5): green shoots near eastern creek, muddy/sticky soil,
+  # ice melt providing sustained moisture. Better than model predicted.
   south_forage:
-    initial: 250
+    initial: 450
     min: 200
   south_moisture:
-    initial: 68
+    initial: 85
   south_som:
     initial: 3.3
 
@@ -137,14 +145,20 @@ stocks:
     initial: 9
 
 # =============================================================================
-# FLOWS - Weather-Integrated Growth
+# FLOWS - Weather-Integrated Growth & Moisture
 # =============================================================================
-# Each paddock growth flow combines:
+# Growth flows combine:
 # - cool_temp_mult[t]: Pre-computed temperature multiplier (time series)
 # - lifecycle_mult[t]: Pre-computed lifecycle stage (time series)
 # - moisture_mult: DYNAMIC (current_moisture / optimal)
 # - capacity_mult: DYNAMIC (1 - current_forage / max)
 # - som_mult: DYNAMIC (1 + current_som * effect)
+#
+# Moisture flows use actual weather data:
+# - daily_precip[t]: Real precipitation from Open-Meteo (time series)
+# - daily_et[t]: Reference ET from Open-Meteo FAO Penman-Monteith (time series)
+# - Per-paddock evap multipliers adjust ET for microclimate (shade, exposure)
+# - Flood bonuses add extra moisture for creek/floodplain paddocks
 # =============================================================================
 
 flows:
@@ -180,12 +194,12 @@ flows:
   cce_rain:
     from: external
     to: cce_moisture
-    rate: base_rain_input
+    rate: daily_precip
 
   cce_evap:
     from: cce_moisture
     to: external
-    rate: "base_evaporation * cce_evap_mult"
+    rate: "daily_et * cce_evap_mult"
 
   cce_som_addition:
     from: external
@@ -229,12 +243,12 @@ flows:
   ccw_rain:
     from: external
     to: ccw_moisture
-    rate: base_rain_input
+    rate: daily_precip
 
   ccw_evap:
     from: ccw_moisture
     to: external
-    rate: "base_evaporation * ccw_evap_mult"
+    rate: "daily_et * ccw_evap_mult"
 
   ccw_som_addition:
     from: external
@@ -278,12 +292,12 @@ flows:
   big_rain:
     from: external
     to: big_moisture
-    rate: "base_rain_input + big_flood_bonus"
+    rate: "daily_precip + big_flood_bonus"
 
   big_evap:
     from: big_moisture
     to: external
-    rate: "base_evaporation * big_evap_mult"
+    rate: "daily_et * big_evap_mult"
 
   big_som_addition:
     from: external
@@ -327,12 +341,12 @@ flows:
   hog_rain:
     from: external
     to: hog_moisture
-    rate: "base_rain_input + hog_flood_bonus"
+    rate: "daily_precip + hog_flood_bonus"
 
   hog_evap:
     from: hog_moisture
     to: external
-    rate: "base_evaporation * hog_evap_mult"
+    rate: "daily_et * hog_evap_mult"
 
   hog_som_addition:
     from: external
@@ -376,12 +390,12 @@ flows:
   south_rain:
     from: external
     to: south_moisture
-    rate: "base_rain_input + south_flood_bonus"
+    rate: "daily_precip + south_flood_bonus"
 
   south_evap:
     from: south_moisture
     to: external
-    rate: "base_evaporation * south_evap_mult"
+    rate: "daily_et * south_evap_mult"
 
   south_som_addition:
     from: external

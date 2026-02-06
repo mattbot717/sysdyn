@@ -1,139 +1,255 @@
 #!/usr/bin/env node
 
 /**
- * Forecast Mode - Rotation Planning Tool
+ * Forecast Mode - Rotation Planning & Optimization
  *
- * Uses 14-day weather forecast to predict paddock recovery
- * and recommend optimal rotation strategy
+ * Full-engine forward planning using real weather forecast data
+ * and brute-force rotation optimization.
+ *
+ * Sections:
+ *   1. Weather forecast summary (14-day)
+ *   2. Current paddock state (estimated from historical simulation)
+ *   3. Forward projections per paddock (full engine, no grazing)
+ *   4. Optimal rotation recommendations (ranked candidates)
+ *   5. Weather insights
  */
 
-import { displayForecastSummary, projectPaddockRecovery, getForecast } from '../lib/forecast.js';
+import { readFile } from 'fs/promises';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import { displayForecastSummary, getForecast, loadWeatherArchive } from '../lib/forecast.js';
+import { estimateCurrentState, extractFinalState, buildWeatherTimeSeries } from '../lib/state-estimator.js';
+import { optimizeRotation } from '../lib/optimizer.js';
+import { refreshWeatherArchive } from '../lib/weather.js';
+import { getCurrentPaddock } from '../lib/rotation.js';
+import { simulate } from '../lib/engine.js';
 import { loadModel } from '../lib/loader.js';
-import { PADDOCK_KEYS, getPaddockNamesMap, FORAGE_THRESHOLDS } from '../lib/config.js';
+import {
+  FORAGE_THRESHOLDS, PADDOCK_KEYS, getPaddockNamesMap, getForageStatus, PADDOCKS
+} from '../lib/config.js';
 
-// Current paddock status (from last simulation)
-// TODO: Load this from simulation state file
-const CURRENT_STATUS = {
-  cce: { forage: 1783, moisture: 36.5 },
-  ccw: { forage: 1844, moisture: 41.4 },
-  big: { forage: 331, moisture: 53.2 },   // Currently grazing
-  hog: { forage: 2200, moisture: 45.9 },
-  south: { forage: 1200, moisture: 75 },  // Recently seeded, recovering with good creek moisture
-};
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const PADDOCK_NAMES = getPaddockNamesMap();
 
-async function main() {
-  try {
-    console.log('\n🔮 FORECAST MODE: ROTATION PLANNING');
-    console.log('══════════════════════════════════════════════════════════\n');
+// ============================================================
+// Display helpers
+// ============================================================
 
-    // Show weather forecast
-    await displayForecastSummary();
+function forageIcon(forage) {
+  if (forage < FORAGE_THRESHOLDS.critical) return '\u274C';
+  if (forage < FORAGE_THRESHOLDS.low) return '\u26A0\uFE0F ';
+  if (forage < FORAGE_THRESHOLDS.marginal) return '\u{1F7E1}';
+  return '\u2705';
+}
 
-    // Load model to get paddock parameters
-    const model = await loadModel('grazing-rotation-real');
+function displayCurrentState(finalState, currentPaddockId) {
+  console.log('\n\u{1F4CA} CURRENT PADDOCK STATE (estimated from historical simulation):\n');
+  console.log('  Paddock                | Forage (kg/ac) | Moisture (mm) | Status');
+  console.log('  -----------------------|----------------|---------------|------------------');
 
-    // Project recovery for each paddock
-    console.log('📊 PADDOCK RECOVERY PROJECTIONS (14 days, no grazing):\n');
+  // Sort by forage descending
+  const sorted = PADDOCK_KEYS
+    .map(key => ({
+      key,
+      forage: finalState[`${key}_forage`] || 0,
+      moisture: finalState[`${key}_moisture`] || 0,
+      som: finalState[`${key}_som`] || 0,
+    }))
+    .sort((a, b) => b.forage - a.forage);
 
-    const paddocks = PADDOCK_KEYS;
-    const projections = [];
+  for (const p of sorted) {
+    const icon = forageIcon(p.forage);
+    const status = getForageStatus(p.forage);
+    const grazing = p.key === currentPaddockId ? ' (GRAZING)' : '';
+    const name = (PADDOCK_NAMES[p.key] + grazing).padEnd(21);
+    console.log(`  ${icon} ${name} | ${p.forage.toFixed(0).padStart(14)} | ${p.moisture.toFixed(1).padStart(13)} | ${status.label}`);
+  }
+  console.log('');
+}
 
-    for (const paddock of paddocks) {
-      const params = {
-        evap_mult: model.params[`${paddock}_evap_mult`],
-        flood_bonus: model.params[`${paddock}_flood_bonus`] || 0,
-        field_capacity: model.params.field_capacity,
-        moisture_optimal: model.params.moisture_optimal,
-        max_growth_rate: model.params.max_growth_rate,
-        optimal_forage: model.params.optimal_forage,
-        season_multiplier: model.params.season_multiplier,
-        target_forage: FORAGE_THRESHOLDS.healthy, // Healthy grazing threshold
-      };
+function displayProjections(projections, currentPaddockId) {
+  console.log('\n\u{1F4C8} 14-DAY FORWARD PROJECTIONS (rest, no grazing):\n');
 
-      const projection = await projectPaddockRecovery(
-        PADDOCK_NAMES[paddock],
-        CURRENT_STATUS[paddock].forage,
-        CURRENT_STATUS[paddock].moisture,
-        params
-      );
+  for (const proj of projections) {
+    const grazing = proj.key === currentPaddockId ? ' (currently grazing)' : '';
+    const changeStr = proj.change >= 0 ? `+${proj.change.toFixed(0)}` : proj.change.toFixed(0);
+    const pctStr = proj.changePct >= 0 ? `+${proj.changePct.toFixed(0)}%` : `${proj.changePct.toFixed(0)}%`;
+    const endIcon = forageIcon(proj.endForage);
+    const endStatus = getForageStatus(proj.endForage);
 
-      projections.push({ id: paddock, ...projection });
+    console.log(`  ${endIcon} ${PADDOCK_NAMES[proj.key]}${grazing}`);
+    console.log(`       Now: ${proj.startForage.toFixed(0)} kg/ac  \u2192  14-day: ${proj.endForage.toFixed(0)} kg/ac (${changeStr}, ${pctStr})`);
+    console.log(`       Moisture: ${proj.startMoisture.toFixed(1)} \u2192 ${proj.endMoisture.toFixed(1)} mm  |  ${endStatus.label}`);
+    console.log('');
+  }
+}
+
+function displayRecommendations(optimResult, currentPaddockId) {
+  console.log('\n\u{1F3AF} OPTIMAL ROTATION RECOMMENDATIONS:\n');
+  console.log(`  Evaluated ${optimResult.candidateCount} rotation sequences in ${optimResult.elapsed}ms\n`);
+
+  console.log('  Rank | Move To \u2192 Then          | Hay Days | Min Forage | Total Forage');
+  console.log('  -----|--------------------------|----------|------------|-------------');
+
+  const top = optimResult.ranked.slice(0, 5);
+  for (const r of top) {
+    const seq = r.candidate.moves.map(m => m.paddockId.toUpperCase()).join(' \u2192 ');
+    const hay = r.score.metrics.hayDays;
+    const hayStr = hay === 0 ? '     0' : `    ${hay}*`;
+    console.log(`  ${String(r.rank).padStart(4)} | ${seq.padEnd(24)} | ${hayStr} | ${String(r.score.metrics.minEndForage).padStart(10)} | ${String(r.score.metrics.totalEndForage).padStart(11)}`);
+  }
+
+  // Best recommendation
+  const best = optimResult.ranked[0];
+  if (best) {
+    const nextMove = best.candidate.moves[0];
+    const thenMove = best.candidate.moves[1];
+
+    console.log(`\n  \u{1F3C6} RECOMMENDED NEXT MOVE:`);
+    console.log(`     Move to: ${nextMove.name} (${nextMove.paddockId.toUpperCase()}) for ${nextMove.duration} days`);
+    if (thenMove) {
+      console.log(`     Then to: ${thenMove.name} (${thenMove.paddockId.toUpperCase()}) for ${thenMove.duration} days`);
     }
 
-    // Sort by final forage (best recovery first)
-    projections.sort((a, b) => b.finalForage - a.finalForage);
+    if (best.score.metrics.hayDays > 0) {
+      console.log(`\n     \u26A0\uFE0F  Even the best path requires ~${best.score.metrics.hayDays} days of hay feeding.`);
+    } else {
+      console.log(`\n     \u2705 This path avoids hay feeding entirely.`);
+    }
 
-    // Display projections
-    for (const proj of projections) {
-      const status = proj.finalForage > FORAGE_THRESHOLDS.healthy ? '✅ READY' :
-                     proj.finalForage > FORAGE_THRESHOLDS.marginal ? '⚠️  MARGINAL' :
-                     proj.finalForage > FORAGE_THRESHOLDS.low ? '⚠️  LOW' : '❌ CRITICAL';
+    // Show per-paddock end state for best scenario
+    console.log(`\n     Projected end state (day ${best.candidate.totalDays}):`);
+    for (const key of PADDOCK_KEYS) {
+      const forage = best.score.metrics.perPaddock[key];
+      if (forage !== undefined) {
+        const icon = forageIcon(forage);
+        console.log(`       ${icon} ${PADDOCK_NAMES[key]}: ${Math.round(forage)} kg/ac`);
+      }
+    }
+  }
+}
 
-      const currentlyGrazing = proj.id === 'big' ? ' (CURRENTLY GRAZING)' : '';
+// ============================================================
+// Main
+// ============================================================
 
-      console.log(`  ${proj.paddock}${currentlyGrazing}`);
-      console.log(`    Current:  ${proj.initialForage.toFixed(0)} kg/acre`);
-      console.log(`    14-day:   ${proj.finalForage.toFixed(0)} kg/acre (+${proj.forageGain.toFixed(0)}, ${proj.forageGainPercent > 0 ? '+' : ''}${proj.forageGainPercent}%)`);
-      console.log(`    Moisture: ${proj.initialMoisture.toFixed(1)} → ${proj.finalMoisture.toFixed(1)} mm`);
-      console.log(`    Status:   ${status}`);
+async function main() {
+  try {
+    console.log('\n\u{1F52E} FORECAST MODE: ROTATION PLANNING & OPTIMIZATION');
+    console.log('\u2550'.repeat(56) + '\n');
+
+    // --- Auto-refresh weather if stale ---
+    let weatherArchive;
+    try {
+      weatherArchive = await loadWeatherArchive();
+      const lastDate = weatherArchive.all.time[weatherArchive.all.time.length - 1];
+      const todayStr = new Date().toISOString().split('T')[0];
+      const daysStale = Math.floor((new Date(todayStr) - new Date(lastDate)) / (1000 * 60 * 60 * 24));
+
+      if (daysStale > 0) {
+        console.log(`\u26A0\uFE0F  Weather data is ${Math.abs(daysStale)} days stale. Refreshing...\n`);
+        await refreshWeatherArchive();
+        console.log('');
+      }
+    } catch {
+      console.log('\u26A0\uFE0F  No weather archive found. Fetching...\n');
+      await refreshWeatherArchive();
       console.log('');
     }
 
-    // Recommendations
-    console.log('══════════════════════════════════════════════════════════');
-    console.log('\n🎯 ROTATION RECOMMENDATIONS:\n');
+    // --- Section 1: Weather forecast ---
+    await displayForecastSummary();
 
-    const ready = projections.filter(p => p.finalForage > FORAGE_THRESHOLDS.healthy && p.id !== 'big');
-    const marginal = projections.filter(p => p.finalForage > FORAGE_THRESHOLDS.marginal && p.finalForage <= FORAGE_THRESHOLDS.healthy && p.id !== 'big');
+    // --- Section 2: Current paddock state ---
+    console.log('\u23F3 Estimating current paddock state from 60-day historical simulation...');
+    const stateEstimate = await estimateCurrentState({ historicalDays: 60 });
+    const finalState = stateEstimate.finalState;
+    const currentPaddockInfo = await getCurrentPaddock();
 
-    if (ready.length > 0) {
-      console.log('  ✅ READY TO GRAZE (> 2000 kg/acre):');
-      for (const p of ready) {
-        console.log(`     → ${p.paddock} (${p.finalForage.toFixed(0)} kg/acre)`);
+    displayCurrentState(finalState, currentPaddockInfo.id);
+
+    console.log(`  \u{1F4CD} Herd location: ${currentPaddockInfo.name} (${currentPaddockInfo.daysSince} days)`);
+
+    // --- Section 3: Forward projections (no grazing) ---
+    // Simulate each paddock forward 14 days with no herd to see recovery potential
+    const model = await loadModel('grazing-rotation-annual-v2');
+    const plantingSchedule = JSON.parse(
+      await readFile(join(__dirname, '../data/planting-schedule.json'), 'utf-8')
+    );
+    weatherArchive = await loadWeatherArchive();
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const projections = [];
+    for (const key of PADDOCK_KEYS) {
+      // Clone model and set initial state, put herd on paddock 0 (no paddock)
+      const projModel = JSON.parse(JSON.stringify(model));
+      for (const [stockName, value] of Object.entries(finalState)) {
+        if (projModel.stocks[stockName]) {
+          projModel.stocks[stockName].initial = value;
+        }
       }
+
+      const steps = 14;
+      const timeSeriesParams = buildWeatherTimeSeries(weatherArchive, todayStr, steps, plantingSchedule);
+      // Set current_paddock to 0 = no paddock grazing (all paddocks rest)
+      timeSeriesParams.current_paddock = new Array(steps).fill(0);
+
+      const results = simulate(projModel, { steps, dt: 1, timeSeriesParams });
+      const endState = extractFinalState(results);
+
+      projections.push({
+        key,
+        startForage: finalState[`${key}_forage`] || 0,
+        endForage: endState[`${key}_forage`] || 0,
+        change: (endState[`${key}_forage`] || 0) - (finalState[`${key}_forage`] || 0),
+        changePct: finalState[`${key}_forage`] > 0
+          ? ((endState[`${key}_forage`] - finalState[`${key}_forage`]) / finalState[`${key}_forage`]) * 100
+          : 0,
+        startMoisture: finalState[`${key}_moisture`] || 0,
+        endMoisture: endState[`${key}_moisture`] || 0,
+      });
     }
 
-    if (marginal.length > 0) {
-      console.log('\n  ⚠️  MARGINAL (1500-2000 kg/acre):');
-      for (const p of marginal) {
-        console.log(`     → ${p.paddock} (${p.finalForage.toFixed(0)} kg/acre) - short grazing period recommended`);
-      }
-    }
+    projections.sort((a, b) => b.endForage - a.endForage);
+    displayProjections(projections, currentPaddockInfo.id);
 
-    // Current paddock status
-    const currentProj = projections.find(p => p.id === 'big');
-    console.log(`\n  📍 CURRENT PADDOCK: ${currentProj.paddock}`);
-    console.log(`     Status: ${currentProj.finalForage.toFixed(0)} kg/acre (CRITICAL - hay feeding required)`);
-    console.log(`     Recommendation: MOVE SOON to allow recovery`);
+    // --- Section 4: Rotation optimizer ---
+    console.log('\u2699\uFE0F  Running rotation optimizer...');
+    const optimResult = await optimizeRotation({
+      initialState: finalState,
+      currentPaddock: currentPaddockInfo.id,
+      movesAhead: 2,
+      daysPerRotation: model.params.rotation_days || 14,
+      plantingSchedule,
+    });
 
-    // Best next paddock
-    const best = ready.length > 0 ? ready[0] : marginal[0];
-    console.log(`\n  🏆 BEST NEXT ROTATION:`);
-    console.log(`     → Move to: ${best.paddock}`);
-    console.log(`     → Expected forage: ${best.finalForage.toFixed(0)} kg/acre`);
-    console.log(`     → Moisture: ${best.finalMoisture.toFixed(1)} mm`);
+    displayRecommendations(optimResult, currentPaddockInfo.id);
 
-    // Weather-based insights
+    // --- Section 5: Weather insights ---
     const forecast = await getForecast(14);
-    const totalRain = forecast.reduce((sum, d) => sum + d.rain_mm, 0);
-    const totalET = forecast.reduce((sum, d) => sum + d.et_mm, 0);
+    if (forecast.length > 0) {
+      const totalRain = forecast.reduce((sum, d) => sum + d.rain_mm, 0);
+      const totalET = forecast.reduce((sum, d) => sum + d.et_mm, 0);
 
-    console.log(`\n  🌦️  WEATHER INSIGHTS:`);
-    if (totalRain > totalET) {
-      console.log(`     → Forecast shows SURPLUS (+${(totalRain - totalET).toFixed(1)}mm)`);
-      console.log(`     → Good conditions for grazing and recovery`);
-    } else {
-      console.log(`     → Forecast shows DEFICIT (${(totalRain - totalET).toFixed(1)}mm)`);
-      console.log(`     → Consider shorter grazing periods`);
-      console.log(`     → Monitor closely, may need hay supplementation`);
+      console.log(`\n  \u{1F326}\uFE0F  WEATHER OUTLOOK:`);
+      if (totalRain > totalET) {
+        console.log(`     Forecast: SURPLUS (+${(totalRain - totalET).toFixed(1)}mm over 14 days)`);
+        console.log(`     Good conditions for grazing and recovery.`);
+      } else {
+        console.log(`     Forecast: DEFICIT (${(totalRain - totalET).toFixed(1)}mm over 14 days)`);
+        console.log(`     Consider shorter grazing periods. Monitor moisture closely.`);
+      }
     }
 
-    console.log('\n══════════════════════════════════════════════════════════\n');
+    console.log('\n' + '\u2550'.repeat(56) + '\n');
 
   } catch (error) {
-    console.error('❌ Error:', error.message);
+    console.error('\n\u274C Error:', error.message);
+    if (process.argv.includes('--debug')) {
+      console.error(error.stack);
+    }
     process.exit(1);
   }
 }
