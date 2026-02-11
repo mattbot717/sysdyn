@@ -88,7 +88,16 @@ function displayProjections(projections, currentPaddockId) {
 
 function displayRecommendations(optimResult, currentPaddockId) {
   console.log('\n\u{1F3AF} OPTIMAL ROTATION RECOMMENDATIONS:\n');
-  console.log(`  Evaluated ${optimResult.candidateCount} rotation sequences in ${optimResult.elapsed}ms\n`);
+  console.log(`  Evaluated ${optimResult.candidateCount} rotation sequences in ${optimResult.elapsed}ms`);
+
+  // Show cooldown info
+  if (optimResult.cooldown?.excluded.length > 0) {
+    const excluded = optimResult.cooldown.excluded
+      .map(k => `${PADDOCK_NAMES[k]} (${optimResult.cooldown.daysSinceGrazed[k]}d rest)`)
+      .join(', ');
+    console.log(`  \u23F3 Cooldown (min ${optimResult.cooldown.minRestDays}d rest): excluded ${excluded}`);
+  }
+  console.log('');
 
   console.log('  Rank | Move To \u2192 Then          | Hay Days | Min Forage | Total Forage');
   console.log('  -----|--------------------------|----------|------------|-------------');

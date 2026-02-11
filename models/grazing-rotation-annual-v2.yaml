@@ -18,7 +18,7 @@ description: Pyrennial Farms - Annual forage with weather time series integratio
 # - daily_et: Actual daily reference evapotranspiration (mm) from weather data
 # - current_paddock: Which paddock the herd is grazing (1-5)
 #
-# Last updated: 2026-02-05
+# Last updated: 2026-02-10
 # =============================================================================
 
 params:
@@ -30,7 +30,7 @@ params:
   daily_intake_rate: 0.025  # 2.5% of body weight per day
 
   # Rotation control
-  current_paddock: 3     # 1=CCE, 2=CCW, 3=Big, 4=Hog, 5=South
+  current_paddock: 5     # 1=CCE, 2=CCW, 3=Big, 4=Hog, 5=South
   rotation_days: 14
 
   # ============================================================
@@ -87,6 +87,11 @@ params:
   trampling_loss_rate: 0.25
   max_daily_consumption: 0.15
 
+  # Hay supplementation: fraction of intake from hay/cubes (0=none, 1=fully supplemented)
+  # Reduces grazing pressure on pasture forage proportionally.
+  # Can be overridden as a time series param for day-by-day variation.
+  hay_supplement_factor: 0.4
+
 # =============================================================================
 # STOCKS
 # =============================================================================
@@ -142,7 +147,7 @@ stocks:
 
   # ROTATION TRACKING
   rotation_timer:
-    initial: 9
+    initial: 2
 
 # =============================================================================
 # FLOWS - Weather-Integrated Growth & Moisture
@@ -181,6 +186,7 @@ flows:
     from: cce_forage
     to: external
     rate: |
+      (1 - hay_supplement_factor) *
       (current_paddock == 1) * min(
         (total_herd_weight * daily_intake_rate) / cce_acres,
         max(cce_forage - min_residual, 0) * max_daily_consumption
@@ -230,6 +236,7 @@ flows:
     from: ccw_forage
     to: external
     rate: |
+      (1 - hay_supplement_factor) *
       (current_paddock == 2) * min(
         (total_herd_weight * daily_intake_rate) / ccw_acres,
         max(ccw_forage - min_residual, 0) * max_daily_consumption
@@ -279,6 +286,7 @@ flows:
     from: big_forage
     to: external
     rate: |
+      (1 - hay_supplement_factor) *
       (current_paddock == 3) * min(
         (total_herd_weight * daily_intake_rate) / big_acres,
         max(big_forage - min_residual, 0) * max_daily_consumption
@@ -328,6 +336,7 @@ flows:
     from: hog_forage
     to: external
     rate: |
+      (1 - hay_supplement_factor) *
       (current_paddock == 4) * min(
         (total_herd_weight * daily_intake_rate) / hog_acres,
         max(hog_forage - min_residual, 0) * max_daily_consumption
@@ -377,6 +386,7 @@ flows:
     from: south_forage
     to: external
     rate: |
+      (1 - hay_supplement_factor) *
       (current_paddock == 5) * min(
         (total_herd_weight * daily_intake_rate) / south_acres,
         max(south_forage - min_residual, 0) * max_daily_consumption

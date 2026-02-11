@@ -23,6 +23,7 @@ import {
   logEvent,
   displayRotationHistory
 } from '../lib/rotation.js';
+import { parseOptions } from '../lib/cli-utils.js';
 
 async function main() {
   const args = process.argv.slice(2);
@@ -109,33 +110,6 @@ async function handleEvent(args) {
   if (result.paddock) console.log(`   Paddock: ${result.paddock}`);
   if (result.notes) console.log(`   Notes: ${result.notes}`);
   console.log('');
-}
-
-function parseOptions(args) {
-  const options = {};
-  let i = 0;
-
-  while (i < args.length) {
-    const arg = args[i];
-
-    if (arg.startsWith('--')) {
-      const key = arg.slice(2);
-      const nextArg = args[i + 1];
-
-      // Check if next arg is a value or another flag
-      if (nextArg && !nextArg.startsWith('--')) {
-        options[key] = nextArg;
-        i += 2;
-      } else {
-        options[key] = true;
-        i += 1;
-      }
-    } else {
-      i += 1;
-    }
-  }
-
-  return options;
 }
 
 function showHelp() {

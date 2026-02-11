@@ -12,9 +12,9 @@
     }
   },
   "currentPaddock": {
-    "id": "big",
-    "name": "Big Pasture",
-    "since": "2026-01-22"
+    "id": "south",
+    "name": "Frankie's Pasture",
+    "since": "2026-02-08"
   },
   "rotations": [
     {
@@ -57,10 +57,19 @@
       "paddock": "big",
       "name": "Big Pasture",
       "start": "2026-01-22",
+      "end": "2026-02-08",
+      "days": 17,
+      "hayFed": true,
+      "notes": "Ice storm ~Jan 24. Hay supplementation throughout. Longest rotation this cycle."
+    },
+    {
+      "paddock": "south",
+      "name": "Frankie's Pasture",
+      "start": "2026-02-08",
       "end": null,
       "days": null,
       "hayFed": true,
-      "notes": "Current paddock. Ice storm ~Jan 24. Hay supplementation ongoing."
+      "notes": "Green shoots regularly interspersed but largely brown from afar. Preemptive big hay bale + cattle cubes. Goal: eat some grass but allow most to rebound."
     }
   ],
   "events": [
@@ -70,10 +79,10 @@
       "notes": "54-day drought begins (Dec 1 - Jan 23)"
     },
     {
-      "date": "2025-12-25",
+      "date": "2025-11-15",
       "type": "seeding",
       "paddock": "south",
-      "notes": "Seeded Frankie's Pasture after grazing. ~10-15% near creek showing green shoots by late Jan."
+      "notes": "Frankie's seeded — uncertain date, possibly mid-Nov while lingering summer grasses present. Green shoots near creek by late Jan despite drought."
     },
     {
       "date": "2026-01-23",
@@ -85,6 +94,12 @@
       "date": "2026-01-24",
       "type": "ice_storm",
       "notes": "Ice storm hit. Damaged above-ground forage but roots intact."
+    },
+    {
+      "date": "2026-02-08",
+      "type": "hay_delivery",
+      "paddock": "south",
+      "notes": "Big bale placed preemptively on Frankie's. Also providing cattle cubes. Herd moved from Big Pasture."
     }
   ]
 }

@@ -96,10 +96,10 @@
       "characteristics": "Creek runoff, good moisture, named after cattle",
       "cool_season": {
         "2025": {
-          "planted": "2025-12-12",
+          "planted": "2025-11-15",
           "species": "Rye + clover mix (purchased blend)",
           "seeding_rate_lbs_acre": 25,
-          "notes": "Seeded early-mid Dec (possibly overseeded while herd on pasture Dec 10-24). Green shoots near creek by late Jan despite drought. Original estimate was Dec 25 but field evidence suggests earlier."
+          "notes": "Uncertain date — may have been seeded in November while lingering summer grasses were still present. Previous estimates ranged Dec 12-25 but owner recalls November. Green shoots near creek by late Jan despite drought."
         }
       },
       "warm_season": {
@@ -176,10 +176,18 @@
       {
         "paddock": "big",
         "start": "2026-01-22",
+        "end": "2026-02-08",
+        "days": 17,
+        "hay_required": true
+      },
+      {
+        "paddock": "south",
+        "start": "2026-02-08",
         "end": null,
         "days": null,
         "current": true,
-        "hay_required": true
+        "hay_required": true,
+        "notes": "Green shoots interspersed, mostly brown. Hay bale + cattle cubes provided."
       }
     ]
   },
