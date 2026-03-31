@@ -1,0 +1,135 @@
+# Multifamily Cash Flow Optimization Model
+# Phase 4 of sysdyn roadmap
+#
+# Transforms sysdyn from simulation tool to decision support system.
+# Excel tells you "what happens." This model tells you "what SHOULD happen."
+#
+# STATUS: Spec only. Build when Phase 4 Monte Carlo + optimization are ready.
+
+name: multifamily-cashflow
+description: >
+  Optimal cash reserve sizing, CapEx timing, and maintenance strategy
+  for multifamily properties. Models the feedback loop between deferred
+  maintenance, property condition, occupancy, and revenue that Excel misses.
+
+timestep: 1          # months
+duration: 120        # 10 years
+
+stocks:
+  cash_reserves:
+    initial: 50000
+    min: 0
+    description: Operating account balance
+
+  property_condition:
+    initial: 8.5
+    min: 0
+    max: 10
+    description: Physical condition score (0 = condemned, 10 = brand new)
+
+  property_value:
+    initial: 2000000
+    description: Current market value
+
+  occupancy_rate:
+    initial: 0.95
+    min: 0.50
+    max: 1.0
+    description: Percentage of units occupied
+
+flows:
+  # --- Inflows to cash ---
+  rental_income:
+    from: external
+    to: cash_reserves
+    rate: "occupancy_rate * units * rent_per_unit"
+
+  # --- Outflows from cash ---
+  operating_expenses:
+    from: cash_reserves
+    to: external
+    rate: "base_opex + property_value * opex_rate"
+
+  debt_service:
+    from: cash_reserves
+    to: external
+    rate: "monthly_debt_service"  # fixed
+
+  capex_spending:
+    from: cash_reserves
+    to: external  # also improves property_condition (linked flow)
+    rate: "ifelse(cash_reserves > reserve_threshold, capex_monthly, 0)"
+
+  # --- Condition dynamics ---
+  condition_improvement:
+    from: external
+    to: property_condition
+    rate: "capex_spending * condition_improvement_factor"
+    description: CapEx spending improves condition
+
+  condition_decay:
+    from: property_condition
+    to: external
+    rate: "property_condition * decay_rate"
+    description: Natural deterioration without maintenance
+
+  # --- Occupancy response ---
+  occupancy_response:
+    to: occupancy_rate
+    rate: "(target_occupancy - occupancy_rate) * condition_factor * response_speed"
+    description: >
+      Occupancy tracks property condition with delay.
+      Poor condition -> tenants leave. Good condition -> fills up.
+
+  # --- Value dynamics ---
+  value_appreciation:
+    to: property_value
+    rate: "property_value * (base_appreciation + occupancy_premium)"
+
+parameters:
+  units: 50
+  rent_per_unit: 1200
+  base_opex: 25000           # monthly
+  opex_rate: 0.005           # % of value per month
+  monthly_debt_service: 8500
+  reserve_threshold: 30000   # CapEx triggers when reserves above this
+  capex_monthly: 3000        # monthly CapEx budget when above threshold
+  condition_improvement_factor: 0.001
+  decay_rate: 0.008          # monthly condition decay
+  target_occupancy: 0.95
+  response_speed: 0.15       # how fast occupancy adjusts
+  base_appreciation: 0.002   # monthly (~2.4% annual)
+  occupancy_premium: 0.001   # extra appreciation when well-occupied
+
+# --- Feedback Loops ---
+# 1. CapEx Dilemma (core tension):
+#    Spend CapEx -> Cash drops -> Risk if shock occurs
+#    BUT Skip CapEx -> Condition declines -> Occupancy drops -> Revenue falls -> Forced spend later
+#
+# 2. Virtuous Cycle:
+#    Good condition -> High occupancy -> Strong revenue -> More CapEx budget -> Better condition
+#
+# 3. Death Spiral:
+#    Deferred maintenance -> Condition drops -> Vacancies rise -> Revenue falls ->
+#    Can't afford maintenance -> Further decline
+
+# --- Optimization Questions ---
+# Q1: What reserve_threshold maximizes 10-year NPV while keeping insolvency risk < 5%?
+# Q2: Should capex_monthly be proactive ($5K/mo always) or reactive (only when condition < 7)?
+# Q3: How does the optimal strategy change under recession (rent -10%, vacancy +5% at year 3)?
+# Q4: Is a $100K unit upgrade worth it? (cash drop + condition boost + rent increase)
+
+# --- Monte Carlo Shocks (Phase 4) ---
+# shock_types:
+#   vacancy_spike:
+#     distribution: poisson
+#     frequency: 0.1           # 10% chance per month
+#     magnitude: [-0.05, -0.15] # 5-15% occupancy drop
+#   maintenance_emergency:
+#     distribution: poisson
+#     frequency: 0.05
+#     magnitude: [5000, 25000]  # unexpected cost
+#   rent_growth:
+#     distribution: normal
+#     mean: 0.003
+#     std: 0.005
